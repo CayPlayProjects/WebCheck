@@ -1,0 +1,14 @@
+{
+  "name": "webcheck",
+  "version": "0.2.1",
+  "private": true,
+  "description": "Clear website diagnostics for SEO, security, social metadata and technical health.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

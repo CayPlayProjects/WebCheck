@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#f4f1e8">
+  <meta name="description" content="WebCheck — понятная диагностика сайта: SEO, безопасность, social preview и техническое состояние.">
+  <title>WebCheck — Website Diagnostics</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <div class="page-grid" aria-hidden="true"></div>
+
+  <header class="site-header">
+    <a class="logo" href="/" aria-label="WebCheck">
+      <span class="logo-box">WC</span>
+      <span class="logo-text">
+        <strong>WEB/CHECK</strong>
+        <small>site diagnostics</small>
+      </span>
+    </a>
+
+    <div class="header-right">
+      <span class="engine-state"><i></i> ENGINE ONLINE</span>
+      <span class="version">V0.2.1</span>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero" id="hero">
+      <div class="hero-copy">
+        <div class="hero-label">
+          <span>01</span>
+          <span>PUBLIC WEBSITE ANALYZER</span>
+        </div>
+
+        <h1>
+          Сайт в порядке?
+          <em>Проверим.</em>
+        </h1>
+
+        <p class="hero-description">
+          Введите адрес — WebCheck соберёт базовые SEO, security, social и technical сигналы
+          и превратит их в короткий понятный отчёт.
+        </p>
+
+        <form class="scan-form" id="checkForm">
+          <label class="url-field">
+            <span class="protocol">URL</span>
+            <input
+              id="urlInput"
+              type="text"
+              inputmode="url"
+              autocomplete="url"
+              spellcheck="false"
+              placeholder="cayplay.ru"
+              aria-label="Адрес сайта"
+            >
+          </label>
+          <button class="scan-button" id="checkButton" type="submit">
+            <span>START SCAN</span>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h13M13 6l6 6-6 6"/></svg>
+          </button>
+        </form>
+
+        <div class="hero-notes">
+          <span>NO ACCOUNT</span>
+          <span>PUBLIC SITES ONLY</span>
+          <span>HTTP + HTTPS</span>
+        </div>
+      </div>
+
+      <div class="hero-visual" aria-hidden="true">
+        <div class="visual-top">
+          <span>LIVE DIAGNOSTIC MAP</span>
+          <span class="visual-code">WC-02</span>
+        </div>
+
+        <div class="radar">
+          <div class="radar-ring r1"></div>
+          <div class="radar-ring r2"></div>
+          <div class="radar-ring r3"></div>
+          <div class="radar-axis x"></div>
+          <div class="radar-axis y"></div>
+          <div class="radar-sweep"></div>
+
+          <div class="radar-node n1"><b>SEO</b><span>01</span></div>
+          <div class="radar-node n2"><b>SEC</b><span>02</span></div>
+          <div class="radar-node n3"><b>SOC</b><span>03</span></div>
+          <div class="radar-node n4"><b>TECH</b><span>04</span></div>
+
+          <div class="radar-center">W</div>
+        </div>
+
+        <div class="visual-bottom">
+          <div><span>CHECKS</span><strong>20+</strong></div>
+          <div><span>REPORT</span><strong>LIVE</strong></div>
+          <div><span>FORMAT</span><strong>CLEAR</strong></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="manifest">
+      <div class="manifest-index">02 / WHAT WE CHECK</div>
+      <div class="manifest-grid">
+        <article>
+          <span class="manifest-no">A</span>
+          <h2>SEO</h2>
+          <p>Title, description, canonical, H1, language, viewport и индексация.</p>
+        </article>
+        <article>
+          <span class="manifest-no">B</span>
+          <h2>SECURITY</h2>
+          <p>HTTPS, HSTS, CSP и основные security headers.</p>
+        </article>
+        <article>
+          <span class="manifest-no">C</span>
+          <h2>SOCIAL</h2>
+          <p>OpenGraph и готовность страницы к нормальному preview ссылок.</p>
+        </article>
+        <article>
+          <span class="manifest-no">D</span>
+          <h2>TECH</h2>
+          <p>HTTP status, redirects, HTML size, favicon и время ответа.</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="loading-screen" id="loadingPanel" hidden>
+      <div class="loading-header">
+        <span>SCAN IN PROGRESS</span>
+        <strong id="loadingUrl">—</strong>
+      </div>
+
+      <div class="loading-track"><i></i></div>
+
+      <div class="loading-steps">
+        <div class="loading-step active"><span>01</span><strong>CONNECT</strong><small>Подключение к сайту</small></div>
+        <div class="loading-step"><span>02</span><strong>PARSE</strong><small>Чтение страницы</small></div>
+        <div class="loading-step"><span>03</span><strong>INSPECT</strong><small>Проверка сигналов</small></div>
+        <div class="loading-step"><span>04</span><strong>REPORT</strong><small>Сбор результатов</small></div>
+      </div>
+    </section>
+
+    <section class="report" id="results" hidden>
+      <div class="report-head">
+        <div>
+          <div class="report-kicker">03 / DIAGNOSTIC REPORT</div>
+          <h2 id="siteHost">example.com</h2>
+          <a id="siteUrl" href="#" target="_blank" rel="noopener noreferrer">https://example.com</a>
+        </div>
+        <div class="report-actions">
+          <button id="copyReportButton" type="button">COPY REPORT</button>
+          <button id="repeatCheckButton" type="button">RESCAN</button>
+        </div>
+      </div>
+
+      <div class="scoreboard">
+        <article class="overall-score">
+          <div class="score-meta">
+            <span>OVERALL</span>
+            <span id="gradePill">GRADE —</span>
+          </div>
+          <div class="score-number">
+            <strong id="scoreValue">0</strong>
+            <span>/100</span>
+          </div>
+          <div class="score-bar"><i id="scoreBar"></i></div>
+          <p id="scoreDescription">—</p>
+        </article>
+
+        <div class="category-scores" id="categoryScores">
+          <article data-category="seo"><span>SEO</span><strong>0</strong><i><b></b></i></article>
+          <article data-category="security"><span>SECURITY</span><strong>0</strong><i><b></b></i></article>
+          <article data-category="social"><span>SOCIAL</span><strong>0</strong><i><b></b></i></article>
+          <article data-category="technical"><span>TECHNICAL</span><strong>0</strong><i><b></b></i></article>
+        </div>
+      </div>
+
+      <div class="quick-stats">
+        <div><span>HTTP STATUS</span><strong id="metricStatus">—</strong><small id="metricStatusHint">—</small></div>
+        <div><span>RESPONSE</span><strong id="metricTime">—</strong><small>first response</small></div>
+        <div><span>HTML SIZE</span><strong id="metricSize">—</strong><small>downloaded markup</small></div>
+        <div><span>REDIRECTS</span><strong id="metricRedirects">—</strong><small>before final URL</small></div>
+      </div>
+
+      <div class="report-section">
+        <div class="section-title">
+          <span>04</span>
+          <div><small>CHECKLIST</small><h3>Что найдено</h3></div>
+          <span class="section-line"></span>
+        </div>
+        <div class="checks-list" id="checksGrid"></div>
+      </div>
+
+      <div class="report-section">
+        <div class="section-title">
+          <span>05</span>
+          <div><small>ACTION PLAN</small><h3>Что исправить</h3></div>
+          <span class="section-line"></span>
+          <b class="recommendation-count" id="recommendationCount">0</b>
+        </div>
+        <div class="recommendations" id="recommendations"></div>
+      </div>
+
+      <details class="raw-details">
+        <summary>
+          <span>06 / TECHNICAL DATA</span>
+          <strong>Показать детали</strong>
+          <b>+</b>
+        </summary>
+        <div class="details-table" id="detailsGrid"></div>
+      </details>
+
+      <div class="report-footer">
+        <button class="new-scan" id="newCheckButton" type="button">← NEW WEBSITE</button>
+        <span id="checkedAt">—</span>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <span>WEB/CHECK © 2026</span>
+    <span>FAST WEBSITE DIAGNOSTICS</span>
+  </footer>
+
+  <div class="toast" id="toast" role="status" aria-live="polite">Done</div>
+
+  <script src="/app.js"></script>
+</body>
+</html>
