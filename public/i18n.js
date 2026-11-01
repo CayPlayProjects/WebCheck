@@ -268,6 +268,16 @@
     "JSON-отчёт скачан":"JSON report downloaded"
   });
 
+  Object.assign(translations, {
+    "Слишком много проверок. Повторите попытку немного позже.":"Too many scans. Try again later.",
+    "Сканер занят. Повторите запрос через несколько секунд.":"Scanner is busy. Try again in a few seconds.",
+    "Некорректный JSON в запросе":"Invalid JSON request.",
+    "Запрос слишком большой":"Request body is too large.",
+    "Локальные адреса нельзя проверять":"Local addresses cannot be scanned.",
+    "Приватные IP-адреса нельзя проверять":"Private IP addresses cannot be scanned.",
+    "Адрес сайта ведёт в приватную или локальную сеть":"The website resolves to a private or local network address."
+  });
+
   const hasCyrillic = value => /[А-Яа-яЁё]/.test(value);
   const russianToEnglish = {};
   const englishToRussian = {};
