@@ -67,8 +67,9 @@ function previousReportFor(data,historyEntryId){
     const index=entries.findIndex(item=>item.id===historyEntryId);
     candidates=index>=0?entries.slice(index+1):[];
   }
-  const host=String(data.host||"").toLowerCase();
-  return candidates.find(item=>String(item.report.host||"").toLowerCase()===host)?.report||null;
+  const siteKey=window.WebCheckHistory.siteKey;
+  const host=siteKey(data);
+  return candidates.find(item=>siteKey(item.report)===host)?.report||null;
 }
 
 function renderComparison(current,previous){
@@ -103,7 +104,7 @@ function renderComparison(current,previous){
       <strong>${item.current===null?"—":item.current}</strong>
       <small class="${item.delta>0?"improved":item.delta<0?"worsened":"unchanged"}">${item.delta===null?"—":(item.delta>0?"+":"")+item.delta}</small>
     </div>`).join("");
-  const labels={improved:"IMPROVED",worsened:"REGRESSED",new:"NEW",resolved:"REMOVED",changed:"CHANGED"};
+  const labels={improved:"IMPROVED",worsened:"REGRESSED",new:"NEW",removed:"REMOVED FROM REPORT",changed:"CHANGED"};
   $("#comparisonChanges").innerHTML=comparison.changes.length
     ? comparison.changes.map(item=>`
       <div class="comparison-change ${escapeHtml(item.state)}">
