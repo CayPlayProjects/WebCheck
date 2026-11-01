@@ -23,7 +23,7 @@
 
     <div class="header-right">
       <span class="engine-state"><i></i> ENGINE ONLINE</span>
-      <span class="version">V0.2.1</span>
+      <span class="version">V0.6.0</span>
     </div>
   </header>
 
@@ -41,8 +41,8 @@
         </h1>
 
         <p class="hero-description">
-          Введите адрес — WebCheck соберёт базовые SEO, security, social и technical сигналы
-          и превратит их в короткий понятный отчёт.
+          Введите адрес — WebCheck проверит SEO, безопасность, производительность, доступность, ссылки и техническое состояние
+          и соберёт подробный отчёт с приоритетами и рекомендациями.
         </p>
 
         <form class="scan-form" id="checkForm">
@@ -62,12 +62,44 @@
             <span>START SCAN</span>
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h13M13 6l6 6-6 6"/></svg>
           </button>
+          <div class="scan-options">
+            <label class="scan-option">
+              <span>CRAWL DEPTH</span>
+              <select id="crawlDepth" name="crawlDepth">
+                <option value="1">1 level</option>
+                <option value="2" selected>2 levels</option>
+                <option value="3">3 levels</option>
+              </select>
+            </label>
+            <label class="scan-option">
+              <span>MAX PAGES</span>
+              <select id="crawlPages" name="crawlPages">
+                <option value="5">5 pages</option>
+                <option value="10" selected>10 pages</option>
+                <option value="20">20 pages</option>
+                <option value="30">30 pages</option>
+              </select>
+            </label>
+            <label class="scan-option scan-option-check">
+              <input id="lighthouseEnabled" type="checkbox">
+              <span>RUN LIGHTHOUSE AUDIT</span>
+            </label>
+            <label class="scan-option" id="lighthouseStrategyWrap" hidden>
+              <span>DEVICE</span>
+              <select id="lighthouseStrategy" name="lighthouseStrategy">
+                <option value="mobile" selected>Mobile</option>
+                <option value="desktop">Desktop</option>
+              </select>
+            </label>
+            <p class="scan-option-note">Crawler checks same-origin pages and respects robots.txt. Lighthouse sends the page URL to Google PageSpeed Insights when enabled.</p>
+          </div>
         </form>
 
         <div class="hero-notes">
           <span>NO ACCOUNT</span>
           <span>PUBLIC SITES ONLY</span>
           <span>HTTP + HTTPS</span>
+          <span>SAME-ORIGIN LINK CHECK</span>
         </div>
       </div>
 
@@ -94,7 +126,7 @@
         </div>
 
         <div class="visual-bottom">
-          <div><span>CHECKS</span><strong>20+</strong></div>
+          <div><span>CHECKS</span><strong>50+</strong></div>
           <div><span>REPORT</span><strong>LIVE</strong></div>
           <div><span>FORMAT</span><strong>CLEAR</strong></div>
         </div>
@@ -122,9 +154,35 @@
         <article>
           <span class="manifest-no">D</span>
           <h2>TECH</h2>
-          <p>HTTP status, redirects, HTML size, favicon и время ответа.</p>
+          <p>HTTP status, redirects, HTML size, favicon, TTFB и внутренние ссылки.</p>
+        </article>
+        <article>
+          <span class="manifest-no">E</span>
+          <h2>PERFORMANCE</h2>
+          <p>Вес HTML, ресурсы, блокирующие скрипты, lazy loading и кэширование.</p>
+        </article>
+        <article>
+          <span class="manifest-no">F</span>
+          <h2>ACCESSIBILITY</h2>
+          <p>Alt-тексты, подписи форм, доступные имена, landmarks и структура элементов.</p>
         </article>
       </div>
+    </section>
+
+    <section class="history-panel" id="historyPanel">
+      <div class="history-heading">
+        <div>
+          <div class="manifest-index">03 / LOCAL WORKSPACE</div>
+          <h2>История проверок</h2>
+          <p>Последние отчёты хранятся только в этом браузере.</p>
+        </div>
+        <div class="history-heading-actions">
+          <span id="historyCount">0 / 8</span>
+          <button id="clearHistoryButton" type="button">CLEAR HISTORY</button>
+        </div>
+      </div>
+      <div class="history-list" id="historyList"></div>
+      <p class="history-empty" id="historyEmpty">Пока нет сохранённых отчётов. Запустите первую проверку сайта.</p>
     </section>
 
     <section class="loading-screen" id="loadingPanel" hidden>
@@ -146,12 +204,14 @@
     <section class="report" id="results" hidden>
       <div class="report-head">
         <div>
-          <div class="report-kicker">03 / DIAGNOSTIC REPORT</div>
+          <div class="report-kicker">04 / DIAGNOSTIC REPORT</div>
           <h2 id="siteHost">example.com</h2>
           <a id="siteUrl" href="#" target="_blank" rel="noopener noreferrer">https://example.com</a>
         </div>
         <div class="report-actions">
           <button id="copyReportButton" type="button">COPY REPORT</button>
+          <button id="downloadJsonButton" type="button">DOWNLOAD JSON</button>
+          <button id="printReportButton" type="button">PRINT / PDF</button>
           <button id="repeatCheckButton" type="button">RESCAN</button>
         </div>
       </div>
@@ -175,6 +235,8 @@
           <article data-category="security"><span>SECURITY</span><strong>0</strong><i><b></b></i></article>
           <article data-category="social"><span>SOCIAL</span><strong>0</strong><i><b></b></i></article>
           <article data-category="technical"><span>TECHNICAL</span><strong>0</strong><i><b></b></i></article>
+          <article data-category="performance"><span>PERFORMANCE</span><strong>0</strong><i><b></b></i></article>
+          <article data-category="accessibility"><span>ACCESSIBILITY</span><strong>0</strong><i><b></b></i></article>
         </div>
       </div>
 
@@ -185,9 +247,20 @@
         <div><span>REDIRECTS</span><strong id="metricRedirects">—</strong><small>before final URL</small></div>
       </div>
 
-      <div class="report-section">
+      <section class="report-section comparison-section" id="comparisonSection" hidden>
         <div class="section-title">
           <span>04</span>
+          <div><small>CHANGE SINCE PREVIOUS SCAN</small><h3>Сравнение с прошлой проверкой</h3></div>
+          <span class="section-line"></span>
+        </div>
+        <div class="comparison-summary" id="comparisonSummary"></div>
+        <div class="comparison-categories" id="comparisonCategories"></div>
+        <div class="comparison-changes" id="comparisonChanges"></div>
+      </section>
+
+      <div class="report-section">
+        <div class="section-title">
+          <span>05</span>
           <div><small>CHECKLIST</small><h3>Что найдено</h3></div>
           <span class="section-line"></span>
         </div>
@@ -196,7 +269,26 @@
 
       <div class="report-section">
         <div class="section-title">
-          <span>05</span>
+          <span>06</span>
+          <div><small>WEBSITE CRAWLER</small><h3>Страницы сайта</h3></div>
+          <span class="section-line"></span>
+        </div>
+        <div class="crawler-stats" id="crawlerStats"></div>
+        <div class="link-audit-list" id="linkAuditGrid"></div>
+      </div>
+
+      <div class="report-section" id="lighthouseSection" hidden>
+        <div class="section-title">
+          <span>07</span>
+          <div><small>GOOGLE PAGESPEED / LIGHTHOUSE</small><h3>Lighthouse report</h3></div>
+          <span class="section-line"></span>
+        </div>
+        <div id="lighthouseContent" class="lighthouse-content"></div>
+      </div>
+
+      <div class="report-section">
+        <div class="section-title">
+          <span>08</span>
           <div><small>ACTION PLAN</small><h3>Что исправить</h3></div>
           <span class="section-line"></span>
           <b class="recommendation-count" id="recommendationCount">0</b>
@@ -206,7 +298,7 @@
 
       <details class="raw-details">
         <summary>
-          <span>06 / TECHNICAL DATA</span>
+          <span>09 / TECHNICAL DATA</span>
           <strong>Показать детали</strong>
           <b>+</b>
         </summary>
@@ -227,6 +319,8 @@
 
   <div class="toast" id="toast" role="status" aria-live="polite">Done</div>
 
+  <script src="/i18n.js"></script>
+  <script src="/history.js"></script>
   <script src="/app.js"></script>
 </body>
 </html>

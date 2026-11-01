@@ -6,7 +6,7 @@
 
 **Проверка SEO, security, social metadata и технического состояния сайта — в одном понятном отчёте.**
 
-![Version](https://img.shields.io/badge/version-0.2.1-265CFF?style=flat-square)
+![Version](https://img.shields.io/badge/version-0.6.0-265CFF?style=flat-square)
 ![Node](https://img.shields.io/badge/Node.js-18%2B-111318?style=flat-square)
 ![License](https://img.shields.io/badge/license-MIT-FF5B2E?style=flat-square)
 ![Status](https://img.shields.io/badge/status-active-168A58?style=flat-square)
@@ -25,12 +25,14 @@ DATABASE     not required
 
 ## 00 / Что такое WebCheck
 
+История последних восьми проверок сохраняется локально в браузере. Сервер WebCheck не получает эти записи: их можно открыть повторно, сравнить с предыдущим запуском или удалить. Для хранения используется ограниченный объём localStorage.
+
 **WebCheck** — небольшой инструмент для быстрой диагностики публичных сайтов.
 
 Вместо огромного отчёта из десятков непонятных метрик он показывает:
 
 - общий балл сайта от `0` до `100`;
-- отдельные оценки по четырём направлениям;
+- отдельные оценки по шести направлениям: SEO, Security, Social, Technical, Performance и Accessibility;
 - что уже настроено правильно;
 - что отсутствует;
 - что стоит исправить в первую очередь;
@@ -48,7 +50,7 @@ SOCIAL       82 / 100
 TECHNICAL    95 / 100
 ```
 
-WebCheck не требует базы данных, регистрации пользователей или сложной настройки.
+WebCheck не требует базы данных и регистрации пользователей. Для обычных проверок внешние зависимости не нужны; Lighthouse обращается к Google PageSpeed Insights.
 
 ---
 
@@ -70,17 +72,21 @@ WebCheck не требует базы данных, регистрации по�
 
 ## Security
 
-WebCheck проверяет базовые security-сигналы:
+Расширенный пассивный Security Audit проверяет публично доступные HTTP-данные и HTML-разметку:
 
-```text
-HTTPS
-Content-Security-Policy
-Strict-Transport-Security
-X-Content-Type-Options
-Referrer-Policy
-```
+- HTTPS и основные security headers: CSP, HSTS, X-Content-Type-Options, Referrer-Policy;
+- clickjacking protection: X-Frame-Options и CSP frame-ancestors;
+- Permissions-Policy, COOP, COEP и CORP;
+- атрибуты Set-Cookie: Secure, HttpOnly и SameSite;
+- mixed content (HTTP-ресурсы на HTTPS-странице);
+- небезопасные form actions и password-поля на HTTP;
+- внешние скрипты без Subresource Integrity;
+- потенциально небезопасные CSP script-src директивы;
+- избыточное раскрытие технологий через Server и X-Powered-By;
+- версию TLS и оставшийся срок действия сертификата;
+- ссылки с target=_blank без rel=noopener.
 
-> WebCheck не является полноценным сканером уязвимостей и не пытается взламывать или атаковать сайт. Это диагностический инструмент для проверки публично доступных HTTP-данных.
+Проверки неэксплуатационные: WebCheck не отправляет exploit payloads, не перебирает учётные данные и не пытается получить доступ к закрытым ресурсам. Результаты являются сигналами для ручной проверки, а не подтверждением отсутствия уязвимостей.
 
 ## Social
 
@@ -89,6 +95,70 @@ Referrer-Policy
 - `og:title`
 - `og:description`
 - `og:image`
+- Twitter/X Card metadata
+
+## Performance
+
+Пассивная оценка HTML и первого HTTP-ответа:
+
+
+- размер HTML-документа;
+- время до получения первых HTTP-заголовков (TTFB);
+- число ссылок на изображения, скрипты и стили;
+- скрипты, способные блокировать разбор HTML;
+- lazy loading изображений;
+- указание размеров изображений;
+- наличие политики кэширования.
+
+### Lighthouse
+
+По желанию можно включить отдельный Lighthouse-аудит через Google PageSpeed Insights API. Он возвращает лабораторные категории Performance, Accessibility, Best Practices и SEO, а также доступные метрики и рекомендации. Режим Mobile или Desktop можно выбрать перед запуском.
+
+При включении этой функции целевой URL передаётся Google PageSpeed Insights. Без этой галочки внешний сервис не вызывается. API-ключ необязателен, но для регулярного использования рекомендуется настроить `PAGESPEED_API_KEY`.
+
+Windows CMD:
+```bat
+set PAGESPEED_API_KEY=YOUR_KEY && npm start
+```
+
+PowerShell:
+```powershell
+$env:PAGESPEED_API_KEY="YOUR_KEY"
+npm start
+```
+
+Не публикуйте ключ в репозитории и не вставляйте его в frontend. Подробности: https://developers.google.com/speed/docs/insights/v5/get-started
+
+Lighthouse-результаты — лабораторные измерения, а не реальные показатели посетителей. Для настоящих пользовательских данных нужен отдельный источник полевых метрик.
+
+## Accessibility
+
+Статические проверки HTML:
+
+- alt у изображений;
+- уникальность id;
+- подписи полей форм;
+- доступные имена кнопок и ссылок;
+- основной landmark;
+- порядок keyboard tab navigation;
+- заголовки таблиц.
+
+Эти сигналы помогают найти частые проблемы, но не являются полноценным WCAG-аудитом и не измеряют цветовой контраст.
+
+## Website crawler
+
+WebCheck умеет выполнять настраиваемый ограниченный обход публичных HTML-страниц того же origin:
+
+- глубина обхода: от 1 до 3 уровней;
+- лимит: от 5 до 30 страниц, включая стартовую;
+- параллельность: не более 3 запросов;
+- ссылки берутся из HTML и sitemap.xml;
+- учитываются правила Allow / Disallow из robots.txt для User-agent WebCheck и *;
+- внешние ссылки пропускаются;
+- редиректы не проходят автоматически: внешний redirect отмечается отдельно;
+- для каждой страницы фиксируются HTTP status, title и число SEO-сигналов с предупреждениями.
+
+Сканер не использует авторизацию и не отправляет формы. Это выборочный аудит, а не полный обход неограниченного сайта. Максимальные глубина и число страниц жёстко ограничены сервером.
 
 ## Technical
 
@@ -97,6 +167,8 @@ WebCheck также показывает:
 - HTTP status;
 - время первого ответа;
 - количество редиректов;
+- TLS protocol и информацию о сроке действия сертификата;
+- выборочную проверку внутренних ссылок того же сайта;
 - размер загруженного HTML;
 - наличие favicon;
 - финальный URL после редиректов.
@@ -139,6 +211,21 @@ v22.18.0
 WebCheck/
 ├── public/
 ├── server.js
+├── security-audit.js
+├── seo-audit.js
+├── performance-audit.js
+├── accessibility-audit.js
+├── link-audit.js
+├── rate-limit.js
+├── ip-safety.js
+├── site-crawler.js
+├── lighthouse.js
+├── test/
+│   ├── security-audit.test.js
+│   ├── seo-audit.test.js
+│   ├── performance-audit.test.js
+│   ├── accessibility-audit.test.js
+│   └── link-audit.test.js
 ├── package.json
 ├── README.md
 ├── LICENSE
@@ -172,7 +259,7 @@ npm start
 Должно появиться:
 
 ```text
-WebCheck v0.2.1 running on http://localhost:3000
+WebCheck v0.6.0 running on http://localhost:3000
 ```
 
 ### Шаг 4
@@ -275,8 +362,8 @@ WebCheck:
 
 - принимает только `HTTP` и `HTTPS`;
 - запрещает `localhost`;
-- запрещает приватные IPv4 диапазоны;
-- блокирует приватные и link-local IPv6;
+- запрещает приватные, link-local, loopback, documentation и другие специальные IPv4 диапазоны;
+- разрешает для IPv6 только глобальный unicast диапазон и блокирует служебные, documentation, multicast и туннельные диапазоны;
 - проверяет IPv4-mapped IPv6;
 - сначала проверяет DNS;
 - подключается именно к проверенному IP;
@@ -293,7 +380,7 @@ LOCALHOST         ✕
 PRIVATE NETWORK   ✕
 ```
 
-> Для большого публичного сервиса всё равно рекомендуется добавить rate limiting, reverse proxy и ограничения на уровне хостинга.
+> Для публичного развёртывания задайте HOST=0.0.0.0 и настройте reverse proxy, TLS, мониторинг и ограничения на уровне хостинга. Встроенный rate limiter — дополнительный базовый барьер, а не замена инфраструктурной защите.
 
 ---
 
@@ -301,14 +388,34 @@ PRIVATE NETWORK   ✕
 
 ```text
 WebCheck/
-│
 ├── public/
 │   ├── index.html
 │   ├── styles.css
 │   ├── app.js
+│   ├── i18n.js
+│   ├── history.js
 │   └── favicon.svg
-│
+├── test/
+│   ├── security-audit.test.js
+│   ├── seo-audit.test.js
+│   ├── performance-audit.test.js
+│   ├── accessibility-audit.test.js
+│   ├── link-audit.test.js
+│   ├── site-crawler.test.js
+│   ├── lighthouse.test.js
+│   ├── history.test.js
+│   ├── rate-limit.test.js
+│   └── ip-safety.test.js
 ├── server.js
+├── security-audit.js
+├── seo-audit.js
+├── performance-audit.js
+├── accessibility-audit.js
+├── link-audit.js
+├── site-crawler.js
+├── lighthouse.js
+├── rate-limit.js
+├── ip-safety.js
 ├── package.json
 ├── README.md
 ├── LICENSE
@@ -329,6 +436,10 @@ WebCheck/
 - отчёт;
 - мобильную адаптацию.
 
+### `public/i18n.js`\n\nПереключение русского и английского интерфейса с сохранением выбора в браузере.\n\n### Report export
+
+Отчёт можно скопировать, скачать как JSON или отправить на печать и сохранить в PDF через системный диалог браузера.
+
 ### `public/app.js`
 
 Frontend-логика:
@@ -339,6 +450,16 @@ Frontend-логика:
 - category score;
 - рекомендации;
 - копирование отчёта.
+
+### Audit modules
+
+- `security-audit.js` — пассивные проверки публичных security-сигналов;
+- `seo-audit.js` — качество метаданных, canonical, robots, JSON-LD и heading hierarchy;
+- `performance-audit.js` — вес HTML, TTFB и статические признаки загрузки;
+- `accessibility-audit.js` — базовые проверки доступности HTML;
+- `link-audit.js` — выборочная проверка внутренних ссылок;
+- `site-crawler.js` — ограниченный обход страниц с учётом robots.txt и sitemap;
+- `lighthouse.js` — запрос и разбор отчётов Google PageSpeed Insights / Lighthouse.
 
 ### `server.js`
 
@@ -459,11 +580,13 @@ POST /api/check
 
 # 09 / Локальный режим разработки
 
-Для обычного запуска:
+Для обычного локального запуска:
 
 ```bash
 npm start
 ```
+
+По умолчанию сервер доступен только на `127.0.0.1:3000`. Для контейнера или публичного хостинга явно задайте `HOST=0.0.0.0` в окружении процесса.
 
 Для автоматического перезапуска сервера после изменений:
 
@@ -483,7 +606,7 @@ npm run dev
 Проверьте, что терминал всё ещё запущен и в нём есть:
 
 ```text
-WebCheck v0.2.1 running on http://localhost:3000
+WebCheck v0.6.0 running on http://localhost:3000
 ```
 
 Затем откройте именно:
@@ -581,7 +704,16 @@ POST /api/check
 
 ```json
 {
-  "url": "https://example.com"
+  "url": "https://example.com",
+  "crawl": {
+    "depth": 2,
+    "maxPages": 10
+  },
+  "lighthouse": {
+    "enabled": false,
+    "strategy": "mobile"
+  },
+  "locale": "ru"
 }
 ```
 
@@ -604,39 +736,44 @@ POST /api/check
 
 # 12 / Ограничения текущей версии
 
-WebCheck v0.2.1 — это быстрый диагностический инструмент.
+WebCheck v0.6.0 объединяет пассивный анализ главной страницы, ограниченный обход внутренних HTML-страниц и дополнительный лабораторный аудит Lighthouse.
 
-Он пока не выполняет:
+Пока не выполняется:
 
-- JavaScript rendering страницы;
-- Lighthouse audit;
-- Core Web Vitals из реальных пользователей;
-- глубокое сканирование всего сайта;
-- проверку всех внутренних ссылок;
-- поиск уязвимостей;
-- анализ JavaScript bundle;
-- полноценный accessibility audit.
+- полный браузерный аудит всех пользовательских сценариев и авторизованных разделов;
+- интерактивный WCAG-аудит и измерение контраста реального интерфейса;
+- активная эксплуатация уязвимостей, fuzzing или перебор учётных данных;
+- анализ исходного кода закрытого backend;
+- неограниченный обход сайтов или переходы по внешним доменам.
 
-Большая часть текущих проверок выполняется по HTML и HTTP headers главной страницы.
+Crawler ограничен 30 страницами и глубиной 3, соблюдает robots.txt и обрабатывает только тот же origin. Lighthouse запускается отдельно через Google PageSpeed Insights. Результаты обеих функций могут зависеть от доступности стороннего сайта и внешнего API.
+
+Security-результаты — сигналы для ручной проверки, а не доказательство наличия или отсутствия уязвимостей. Lighthouse использует лабораторную среду и не заменяет полевые показатели посетителей. История хранится отдельно в браузере пользователя, не синхронизируется между устройствами и может быть очищена настройками браузера.
 
 ---
 
 # 13 / Roadmap
 
-```text
-[ ] OpenGraph visual preview
-[ ] Twitter / X card diagnostics
-[ ] Broken links scanner
-[ ] Lighthouse integration
-[ ] Core Web Vitals
-[ ] Better HTML parser
-[ ] JSON report export
-[ ] PDF report export
-[ ] Scan history
-[ ] Shareable report
-[ ] Rate limiting
-[ ] Docker image
-```
+- [x] Russian / English interface switch
+- [x] Expanded passive Security Audit
+- [x] Security audit unit tests and CI checks
+- [ ] OpenGraph visual preview
+- [ ] Twitter / X card diagnostics
+- [x] Bounded same-origin link sampling
+- [x] Basic performance and accessibility checks
+- [x] API rate and concurrency limits
+- [x] Configurable same-origin crawler with robots.txt and sitemap support
+- [x] Broken and redirected page reporting
+- [x] Google PageSpeed Insights / Lighthouse integration
+- [ ] Core Web Vitals
+- [ ] Better HTML parser
+- [x] JSON report export
+- [x] Print-to-PDF report
+- [x] Local scan history (8 latest reports)
+- [x] Score and checklist comparison with previous scan
+- [ ] Shareable report
+- [x] Rate limiting
+- [ ] Docker image
 
 ---
 

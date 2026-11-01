@@ -4,8 +4,21 @@ const fs = require("fs");
 const path = require("path");
 const dns = require("dns");
 const net = require("net");
+const {runSecurityAudit} = require("./security-audit");
+const {runSeoAudit} = require("./seo-audit");
+const {runPerformanceAudit} = require("./performance-audit");
+const {runAccessibilityAudit} = require("./accessibility-audit");
+const {crawlSite} = require("./site-crawler");
+const {requestPageSpeed} = require("./lighthouse");
+const {createRateLimiter} = require("./rate-limit");
+const {isPrivateIp} = require("./ip-safety");
 
 const PORT = Number(process.env.PORT || 3000);
+const HOST = process.env.HOST || "127.0.0.1";
+const MAX_CONCURRENT_SCANS = Math.max(1, Number(process.env.MAX_CONCURRENT_SCANS || 3));
+const RATE_LIMIT_MAX = Math.max(1, Number(process.env.RATE_LIMIT_MAX || 10));
+const rateLimiter = createRateLimiter({limit:RATE_LIMIT_MAX, windowMs:60000});
+let activeScans = 0;
 const PUBLIC_DIR = path.join(__dirname, "public");
 const MAX_HTML_BYTES = 2 * 1024 * 1024;
 const REQUEST_TIMEOUT = 10000;
@@ -19,12 +32,13 @@ const MIME = {
   ".json":"application/json; charset=utf-8"
 };
 
-function sendJson(res, status, payload){
+function sendJson(res, status, payload, extraHeaders={}){
   const body = JSON.stringify(payload);
   res.writeHead(status, {
     "Content-Type":"application/json; charset=utf-8",
     "Content-Length":Buffer.byteLength(body),
-    "Cache-Control":"no-store"
+    "Cache-Control":"no-store",
+    ...extraHeaders
   });
   res.end(body);
 }
@@ -33,40 +47,6 @@ function normalizeFamily(family, address){
   if(family === 4 || family === "IPv4") return 4;
   if(family === 6 || family === "IPv6") return 6;
   return net.isIP(address);
-}
-
-function isPrivateIp(address){
-  const family = net.isIP(address);
-  if(!family) return true;
-
-  if(family === 4){
-    const p = address.split(".").map(Number);
-    return (
-      p[0] === 0 ||
-      p[0] === 10 ||
-      p[0] === 127 ||
-      (p[0] === 169 && p[1] === 254) ||
-      (p[0] === 172 && p[1] >= 16 && p[1] <= 31) ||
-      (p[0] === 192 && p[1] === 168) ||
-      (p[0] === 100 && p[1] >= 64 && p[1] <= 127) ||
-      p[0] >= 224
-    );
-  }
-
-  let ip = address.toLowerCase();
-
-  // IPv4-mapped IPv6, e.g. ::ffff:127.0.0.1
-  const mapped = ip.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/);
-  if(mapped) return isPrivateIp(mapped[1]);
-
-  return (
-    ip === "::" ||
-    ip === "::1" ||
-    ip.startsWith("fc") ||
-    ip.startsWith("fd") ||
-    /^fe[89ab]/.test(ip) ||
-    ip.startsWith("2001:db8:")
-  );
 }
 
 async function resolvePublicAddress(hostname){
@@ -149,18 +129,35 @@ function createPinnedLookup(resolved){
   };
 }
 
-async function requestUrl(urlString, {method="GET", redirects=0} = {}){
+function getTlsDetails(response){
+  const socket=response && response.socket;
+  if(!socket || typeof socket.getProtocol!=="function") return null;
+  const certificate=typeof socket.getPeerCertificate==="function" ? socket.getPeerCertificate() : {};
+  const validTo=certificate && certificate.valid_to ? certificate.valid_to : "";
+  const expiry=validTo ? Date.parse(validTo) : NaN;
+  return {
+    protocol:socket.getProtocol() || "",
+    authorized:socket.authorized===true,
+    authorizationError:socket.authorizationError || "",
+    issuer:certificate && certificate.issuer ? certificate.issuer.O || certificate.issuer.CN || "" : "",
+    subject:certificate && certificate.subject ? certificate.subject.CN || "" : "",
+    validFrom:certificate && certificate.valid_from ? certificate.valid_from : "",
+    validTo,
+    daysToExpiry:Number.isFinite(expiry) ? Math.floor((expiry-Date.now())/86400000) : null
+  };
+}
+
+async function requestUrl(urlString, {method="GET", redirects=0, followRedirects=true} = {}){
   if(redirects > MAX_REDIRECTS){
     throw new Error("Слишком много редиректов");
   }
 
   const url = normalizeUrl(urlString);
+  const started = Date.now();
   const resolved = await resolvePublicAddress(url.hostname);
   const client = url.protocol === "https:" ? https : http;
 
   return new Promise((resolve, reject) => {
-    const started = Date.now();
-
     const request = client.request({
       protocol:url.protocol,
       hostname:url.hostname,
@@ -171,7 +168,7 @@ async function requestUrl(urlString, {method="GET", redirects=0} = {}){
       lookup:createPinnedLookup(resolved),
       family:resolved.family,
       headers:{
-        "User-Agent":"WebCheck/0.2 Website Diagnostics",
+        "User-Agent":"WebCheck/0.6 Website Diagnostics",
         "Accept":method === "HEAD"
           ? "*/*"
           : "text/html,application/xhtml+xml;q=0.9,*/*;q=0.6",
@@ -182,6 +179,7 @@ async function requestUrl(urlString, {method="GET", redirects=0} = {}){
     }, response => {
       const responseTimeMs = Date.now() - started;
       const statusCode = response.statusCode || 0;
+      const tls = getTlsDetails(response);
 
       if([301,302,303,307,308].includes(statusCode) && response.headers.location){
         response.resume();
@@ -194,7 +192,23 @@ async function requestUrl(urlString, {method="GET", redirects=0} = {}){
           return;
         }
 
-        requestUrl(nextUrl, {method, redirects:redirects + 1})
+        if(!followRedirects){
+          resolve({
+            statusCode,
+            statusText:response.statusMessage || "",
+            headers:response.headers,
+            body:"",
+            bytes:0,
+            responseTimeMs,
+            finalUrl:url.toString(),
+            redirects:0,
+            redirectTo:nextUrl,
+            tls
+          });
+          return;
+        }
+
+        requestUrl(nextUrl, {method, redirects:redirects + 1, followRedirects})
           .then(result => resolve({...result, redirects:result.redirects + 1}))
           .catch(reject);
         return;
@@ -210,7 +224,8 @@ async function requestUrl(urlString, {method="GET", redirects=0} = {}){
           bytes:0,
           responseTimeMs,
           finalUrl:url.toString(),
-          redirects:0
+          redirects:0,
+          tls
         });
         return;
       }
@@ -242,10 +257,17 @@ async function requestUrl(urlString, {method="GET", redirects=0} = {}){
           bytes,
           responseTimeMs,
           finalUrl:url.toString(),
-          redirects:0
+          redirects:0,
+          tls
         });
       });
     });
+
+    const absoluteTimer = setTimeout(() => {
+      request.destroy(new Error("Проверка сайта превысила лимит времени"));
+    }, REQUEST_TIMEOUT);
+    if(typeof absoluteTimer.unref === "function") absoluteTimer.unref();
+    request.on("close", () => clearTimeout(absoluteTimer));
 
     request.on("timeout", () => {
       request.destroy(new Error("Сайт отвечает дольше 10 секунд"));
@@ -375,13 +397,20 @@ function calculateCategoryScore(checks, category){
   return Math.round((earned / total) * 100);
 }
 
-async function analyze(rawUrl){
+async function analyze(rawUrl, options={}){
   const requested = normalizeUrl(rawUrl);
   const page = await requestUrl(requested.toString());
 
   const final = new URL(page.finalUrl);
   const html = page.body || "";
   const headers = page.headers;
+  const securityAudit = runSecurityAudit({html, headers, protocol:final.protocol});
+  const seoAudit = runSeoAudit({html, finalUrl:page.finalUrl});
+  const performanceAudit = runPerformanceAudit({
+    html, htmlBytes:page.bytes, responseTimeMs:page.responseTimeMs, headers
+  });
+  const accessibilityAudit = runAccessibilityAudit({html});
+
 
   const title = firstMatch(html, /<title\b[^>]*>([\s\S]*?)<\/title>/i);
   const description = metaContent(html, "name", "description");
@@ -403,11 +432,43 @@ async function analyze(rawUrl){
 
   const origin = `${final.protocol}//${final.host}`;
 
-  const [robots, sitemap, favicon] = await Promise.all([
-    quickExists(new URL("/robots.txt", origin).toString()),
-    quickExists(new URL("/sitemap.xml", origin).toString()),
+  const [robotsResult,sitemapResult,favicon] = await Promise.all([
+    requestUrl(new URL("/robots.txt",origin).toString(),{method:"GET",followRedirects:false}).catch(()=>null),
+    requestUrl(new URL("/sitemap.xml",origin).toString(),{method:"GET",followRedirects:false}).catch(()=>null),
     quickExists(faviconUrl)
   ]);
+  const robots=Boolean(robotsResult&&robotsResult.statusCode>=200&&robotsResult.statusCode<300);
+  const sitemap=Boolean(sitemapResult&&sitemapResult.statusCode>=200&&sitemapResult.statusCode<300);
+  const crawlOptions=options.crawl||{};
+  const siteCrawl=await crawlSite({
+    startUrl:page.finalUrl,
+    rootPage:page,
+    robotsTxt:robots?robotsResult.body:"",
+    sitemapXml:sitemap?sitemapResult.body:"",
+    maxDepth:crawlOptions.depth,
+    maxPages:crawlOptions.maxPages,
+    concurrency:3,
+    fetchPage:async targetUrl=>{
+      const result=await requestUrl(targetUrl,{method:"GET",followRedirects:false});
+      return result;
+    }
+  });
+
+  let lighthouse=null;
+  if(options.lighthouse&&options.lighthouse.enabled===true){
+    try{
+      lighthouse={
+        status:"completed",
+        ...(await requestPageSpeed(page.finalUrl,{
+          strategy:options.lighthouse.strategy==="desktop"?"desktop":"mobile",
+          locale:options.locale==="en"?"en":"ru",
+          apiKey:process.env.PAGESPEED_API_KEY||""
+        }))
+      };
+    }catch(error){
+      lighthouse={status:"error",error:error&&error.message?error.message:"Lighthouse analysis failed"};
+    }
+  }
 
   const csp = Boolean(headers["content-security-policy"]);
   const hsts = Boolean(headers["strict-transport-security"]);
@@ -437,14 +498,35 @@ async function analyze(rawUrl){
     makeCheck("security","csp","Content-Security-Policy","CSP ограничивает нежелательные источники контента.",csp ? "pass" : "warn",csp ? "Настроен" : "Не найден",7),
     makeCheck("security","hsts","HSTS","HSTS заставляет браузер использовать HTTPS.",hsts ? "pass" : final.protocol === "https:" ? "warn" : "fail",hsts ? "Настроен" : "Не найден",7),
     makeCheck("security","nosniff","X-Content-Type-Options","nosniff запрещает MIME-sniffing.",nosniff ? "pass" : "warn",nosniff ? "nosniff" : "Не найден",5),
-    makeCheck("security","referrer","Referrer-Policy","Политика referrer ограничивает передачу адреса источника.",referrer ? "pass" : "warn",headers["referrer-policy"] || "Не найден",5)
+    makeCheck("security","referrer","Referrer-Policy","Политика referrer ограничивает передачу адреса источника.",referrer ? "pass" : "warn",headers["referrer-policy"] || "Не найден",5),
+    ...securityAudit.checks,
+    ...(final.protocol==="https:" ? [
+      makeCheck("security","tlsProtocol","TLS protocol","The negotiated TLS version should be TLS 1.2 or newer.",
+        page.tls && /TLSv1\\.[23]/.test(page.tls.protocol) ? "pass" : "warn",
+        page.tls && page.tls.protocol ? page.tls.protocol : "TLS details unavailable",4),
+      makeCheck("security","tlsCertificate","TLS certificate","Checks the peer certificate validity and expiry date.",
+        page.tls && page.tls.authorized===true ? "pass" : "warn",
+        page.tls && page.tls.daysToExpiry!==null ? page.tls.daysToExpiry+" days until expiry" : "Certificate details unavailable",5)
+    ] : []),
+    ...seoAudit.checks,
+    ...performanceAudit.checks,
+    ...accessibilityAudit.checks,
+    makeCheck(
+      "technical","siteCrawler","Website crawler",
+      "A bounded same-origin crawl checks public HTML pages and their HTTP status.",
+      siteCrawl.broken>0 ? "fail" : siteCrawl.unverified>0 || siteCrawl.redirects>0 ? "warn" : "pass",
+      siteCrawl.visited+" pages / "+siteCrawl.broken+" broken",
+      7
+    )
   ];
 
   const categoryScores = {
     seo:calculateCategoryScore(checks,"seo"),
     security:calculateCategoryScore(checks,"security"),
     social:calculateCategoryScore(checks,"social"),
-    technical:calculateCategoryScore(checks,"technical")
+    technical:calculateCategoryScore(checks,"technical"),
+    performance:calculateCategoryScore(checks,"performance"),
+    accessibility:calculateCategoryScore(checks,"accessibility")
   };
 
   const totalWeight = checks.reduce((sum,item) => sum + item.weight,0);
@@ -456,12 +538,19 @@ async function analyze(rawUrl){
   let score = Math.round((earned / totalWeight) * 100);
   if(page.statusCode >= 400) score = Math.min(score, 30);
 
-  const recommendations = [];
+  const recommendations = [
+    ...securityAudit.recommendations,
+    ...seoAudit.recommendations,
+    ...performanceAudit.recommendations,
+    ...accessibilityAudit.recommendations
+  ];
   const add = (condition,title,text,priority="medium") => {
     if(condition) recommendations.push({title,text,priority});
   };
 
   add(final.protocol !== "https:","Переведите сайт на HTTPS","HTTPS — базовая защита трафика и стандарт для современного публичного сайта.","high");
+  add(final.protocol==="https:" && page.tls && page.tls.daysToExpiry!==null && page.tls.daysToExpiry<=30,
+    "Renew the TLS certificate","The TLS certificate expires in "+page.tls.daysToExpiry+" days. Renew it before expiry.",page.tls.daysToExpiry<=7?"high":"medium");
   add(!(page.statusCode >= 200 && page.statusCode < 400),"Исправьте HTTP-ответ",`Страница отвечает кодом ${page.statusCode}. Проверьте доступность и редиректы.`,"high");
   add(!title,"Добавьте title","Укажите короткий уникальный заголовок страницы в теге <title>.","high");
   add(!description,"Добавьте meta description","Кратко опишите содержание страницы для поискового сниппета.","medium");
@@ -476,6 +565,9 @@ async function analyze(rawUrl){
   add(final.protocol === "https:" && !hsts,"Включите HSTS","После стабильной настройки HTTPS добавьте Strict-Transport-Security.","medium");
   add(!nosniff,"Добавьте X-Content-Type-Options","Значение nosniff — простая полезная защита от MIME-sniffing.","medium");
   add(page.responseTimeMs > 2500,"Ускорьте серверный ответ","Первый ответ занимает больше 2.5 секунд. Проверьте backend, хостинг и кэширование.","high");
+  add(siteCrawl.broken > 0,"Fix broken internal pages",siteCrawl.broken+" same-origin page(s) returned HTTP errors.","high");
+  add(siteCrawl.redirects > 0,"Review internal redirects",siteCrawl.redirects+" internal URL(s) redirected. Update old links where appropriate.");
+  add(siteCrawl.pagesWithSeoWarnings > 0,"Review SEO on crawled pages",siteCrawl.pagesWithSeoWarnings+" crawled page(s) contain SEO warnings.");
 
   return {
     requestedUrl:requested.toString(),
@@ -490,7 +582,19 @@ async function analyze(rawUrl){
     categoryScores,
     checkedAt:new Date().toISOString(),
     checks,
-    recommendations:recommendations.slice(0,10),
+    recommendations:recommendations.sort((a,b) => (a.priority==="high"?0:1)-(b.priority==="high"?0:1)).slice(0,15),
+    siteCrawl,
+    linkAudit:{
+      checked:Math.max(0,siteCrawl.visited-1),
+      broken:siteCrawl.broken,
+      redirects:siteCrawl.redirects,
+      unverified:siteCrawl.unverified,
+      results:siteCrawl.pages.filter(item=>item.depth>0).map(item=>({
+        url:item.url,statusCode:item.statusCode,statusText:item.error||"",status:item.status,redirectTo:item.redirectTo||""
+      }))
+    },
+    lighthouse,
+    auditMetrics:{performance:performanceAudit.metrics,accessibility:accessibilityAudit.metrics},
     meta:{
       title,
       description,
@@ -499,6 +603,7 @@ async function analyze(rawUrl){
       lang,
       charset,
       h1Count,
+      ...seoAudit.meta,
       ogTitle,
       ogDescription,
       ogImage
@@ -509,7 +614,15 @@ async function analyze(rawUrl){
       cacheControl:headers["cache-control"] || "",
       csp:headers["content-security-policy"] || "",
       hsts:headers["strict-transport-security"] || "",
-      referrerPolicy:headers["referrer-policy"] || ""
+      referrerPolicy:headers["referrer-policy"] || "",
+      tls:page.tls,
+      xFrameOptions:headers["x-frame-options"] || "",
+      permissionsPolicy:headers["permissions-policy"] || "",
+      crossOriginOpenerPolicy:headers["cross-origin-opener-policy"] || "",
+      crossOriginEmbedderPolicy:headers["cross-origin-embedder-policy"] || "",
+      crossOriginResourcePolicy:headers["cross-origin-resource-policy"] || "",
+      setCookieCount:Array.isArray(headers["set-cookie"]) ? headers["set-cookie"].length : headers["set-cookie"] ? 1 : 0,
+      xPoweredBy:headers["x-powered-by"] || ""
     }
   };
 }
@@ -569,6 +682,15 @@ function serveStatic(req, res){
 
 const server = http.createServer((req, res) => {
   if(req.method === "POST" && req.url === "/api/check"){
+    const clientIp = req.socket.remoteAddress || "unknown";
+    const rate = rateLimiter.consume(clientIp);
+    if(!rate.allowed){
+      sendJson(res, 429, {error:"Слишком много проверок. Повторите попытку немного позже."}, {
+        "Retry-After":String(rate.retryAfter)
+      });
+      return;
+    }
+
     let body = "";
     let rejected = false;
 
@@ -586,14 +708,35 @@ const server = http.createServer((req, res) => {
     req.on("end", async () => {
       if(rejected || res.headersSent) return;
 
+      let payload;
       try{
-        const payload = JSON.parse(body || "{}");
-        const result = await analyze(payload.url);
+        payload = JSON.parse(body || "{}");
+      }catch{
+        sendJson(res, 400, {error:"Некорректный JSON в запросе"});
+        return;
+      }
+
+      if(activeScans >= MAX_CONCURRENT_SCANS){
+        sendJson(res, 503, {error:"Сканер занят. Повторите запрос через несколько секунд."}, {
+          "Retry-After":"5"
+        });
+        return;
+      }
+
+      activeScans++;
+      try{
+        const result = await analyze(payload.url,{
+          crawl:payload.crawl,
+          lighthouse:payload.lighthouse,
+          locale:payload.locale
+        });
         sendJson(res, 200, result);
       }catch(error){
         sendJson(res, 400, {
           error:error && error.message ? error.message : "Ошибка проверки сайта"
         });
+      }finally{
+        activeScans--;
       }
     });
 
@@ -614,6 +757,6 @@ const server = http.createServer((req, res) => {
   res.writeHead(405, {"Allow":"GET, HEAD, POST"}).end("Method Not Allowed");
 });
 
-server.listen(PORT, "0.0.0.0", () => {
-  console.log(`WebCheck v0.2.1 running on http://localhost:${PORT}`);
+server.listen(PORT, HOST, () => {
+  console.log(`WebCheck v0.6.0 running on http://${HOST}:${PORT}`);
 });
