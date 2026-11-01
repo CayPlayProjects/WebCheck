@@ -98,11 +98,24 @@ function createHistoryStore(storage,{maxEntries=DEFAULT_MAX_ENTRIES,maxBytes=DEF
   function findLatestForHost(host,{excludeId=null}={}){
     const normalized=String(host||"").toLowerCase();
     return read().find(item=>
-      item.id!==excludeId&&String(item.report.host||"").toLowerCase()===normalized
+      item.id!==excludeId&&(
+        siteKey(item.report)===normalized||
+        String(item.report.host||"").toLowerCase()===normalized
+      )
     )||null;
   }
 
   return {list,save,remove,clear,findLatestForHost};
+}
+
+function siteKey(report){
+  try{
+    const url=new URL(report.finalUrl);
+    const defaultPort=(url.protocol==="https:"&&url.port==="443")||(url.protocol==="http:"&&url.port==="80");
+    return url.hostname.toLowerCase()+(url.port&&!defaultPort?":"+url.port:"");
+  }catch{
+    return String(report.host||"").toLowerCase();
+  }
 }
 
 function statusRank(status){
@@ -172,6 +185,6 @@ function compareReports(current,previous){
   };
 }
 
-const exported={createHistoryStore,compareReports,isValidReport,STORAGE_KEY};
+const exported={createHistoryStore,compareReports,isValidReport,siteKey,STORAGE_KEY};
 if(typeof module!=="undefined"&&module.exports) module.exports=exported;
 if(typeof window!=="undefined") window.WebCheckHistory=exported;
