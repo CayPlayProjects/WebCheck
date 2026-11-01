@@ -183,6 +183,7 @@ WebCheck/
 ├── performance-audit.js
 ├── accessibility-audit.js
 ├── link-audit.js
+├── rate-limit.js
 ├── test/
 │   ├── security-audit.test.js
 │   ├── seo-audit.test.js
@@ -222,7 +223,7 @@ npm start
 Должно появиться:
 
 ```text
-WebCheck v0.4.0 running on http://localhost:3000
+WebCheck v0.4.1 running on http://localhost:3000
 ```
 
 ### Шаг 4
@@ -343,7 +344,7 @@ LOCALHOST         ✕
 PRIVATE NETWORK   ✕
 ```
 
-> Для большого публичного сервиса всё равно рекомендуется добавить rate limiting, reverse proxy и ограничения на уровне хостинга.
+> Для публичного развёртывания задайте HOST=0.0.0.0 и настройте reverse proxy, TLS, мониторинг и ограничения на уровне хостинга. Встроенный rate limiter — дополнительный базовый барьер, а не замена инфраструктурной защите.
 
 ---
 
@@ -518,11 +519,13 @@ POST /api/check
 
 # 09 / Локальный режим разработки
 
-Для обычного запуска:
+Для обычного локального запуска:
 
 ```bash
 npm start
 ```
+
+По умолчанию сервер доступен только на `127.0.0.1:3000`. Для контейнера или публичного хостинга явно задайте `HOST=0.0.0.0` в окружении процесса.
 
 Для автоматического перезапуска сервера после изменений:
 
@@ -686,6 +689,7 @@ Security-результаты строятся по публичному HTML и
 - [ ] Twitter / X card diagnostics
 - [x] Bounded same-origin link sampling
 - [x] Basic performance and accessibility checks
+- [x] API rate and concurrency limits
 - [ ] Full configurable website crawler
 - [ ] Broken links scanner
 - [ ] Lighthouse integration
