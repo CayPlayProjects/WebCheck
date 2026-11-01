@@ -6,7 +6,7 @@
 
 **Проверка SEO, security, social metadata и технического состояния сайта — в одном понятном отчёте.**
 
-![Version](https://img.shields.io/badge/version-0.5.0-265CFF?style=flat-square)
+![Version](https://img.shields.io/badge/version-0.6.0-265CFF?style=flat-square)
 ![Node](https://img.shields.io/badge/Node.js-18%2B-111318?style=flat-square)
 ![License](https://img.shields.io/badge/license-MIT-FF5B2E?style=flat-square)
 ![Status](https://img.shields.io/badge/status-active-168A58?style=flat-square)
@@ -24,6 +24,8 @@ DATABASE     not required
 ```
 
 ## 00 / Что такое WebCheck
+
+История последних восьми проверок сохраняется локально в браузере. Сервер WebCheck не получает эти записи: их можно открыть повторно, сравнить с предыдущим запуском или удалить. Для хранения используется ограниченный объём localStorage.
 
 **WebCheck** — небольшой инструмент для быстрой диагностики публичных сайтов.
 
@@ -257,7 +259,7 @@ npm start
 Должно появиться:
 
 ```text
-WebCheck v0.5.0 running on http://localhost:3000
+WebCheck v0.6.0 running on http://localhost:3000
 ```
 
 ### Шаг 4
@@ -713,7 +715,7 @@ POST /api/check
 
 # 12 / Ограничения текущей версии
 
-WebCheck v0.5.0 объединяет пассивный анализ главной страницы, ограниченный обход внутренних HTML-страниц и дополнительный лабораторный аудит Lighthouse.
+WebCheck v0.6.0 объединяет пассивный анализ главной страницы, ограниченный обход внутренних HTML-страниц и дополнительный лабораторный аудит Lighthouse.
 
 Пока не выполняется:
 
@@ -725,7 +727,7 @@ WebCheck v0.5.0 объединяет пассивный анализ главн�
 
 Crawler ограничен 30 страницами и глубиной 3, соблюдает robots.txt и обрабатывает только тот же origin. Lighthouse запускается отдельно через Google PageSpeed Insights. Результаты обеих функций могут зависеть от доступности стороннего сайта и внешнего API.
 
-Security-результаты — сигналы для ручной проверки, а не доказательство наличия или отсутствия уязвимостей. Lighthouse использует лабораторную среду и не заменяет полевые показатели посетителей.
+Security-результаты — сигналы для ручной проверки, а не доказательство наличия или отсутствия уязвимостей. Lighthouse использует лабораторную среду и не заменяет полевые показатели посетителей. История хранится отдельно в браузере пользователя, не синхронизируется между устройствами и может быть очищена настройками браузера.
 
 ---
 
@@ -746,7 +748,8 @@ Security-результаты — сигналы для ручной прове�
 - [ ] Better HTML parser
 - [x] JSON report export
 - [x] Print-to-PDF report
-- [ ] Scan history
+- [x] Local scan history (8 latest reports)
+- [x] Score and checklist comparison with previous scan
 - [ ] Shareable report
 - [x] Rate limiting
 - [ ] Docker image
