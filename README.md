@@ -222,7 +222,7 @@ npm start
 Должно появиться:
 
 ```text
-WebCheck v0.2.1 running on http://localhost:3000
+WebCheck v0.4.0 running on http://localhost:3000
 ```
 
 ### Шаг 4
@@ -667,14 +667,13 @@ WebCheck v0.4.0 — это пассивный диагностический и�
 
 Он пока не выполняет:
 
-- JavaScript rendering страницы;
-- Lighthouse audit и измерение Core Web Vitals;
-- глубокое сканирование всего сайта и всех внутренних ссылок;
-- активную эксплуатацию уязвимостей или fuzzing;
+- JavaScript rendering страницы и браузерный Lighthouse/Core Web Vitals audit;
+- полный обход сайта — сейчас проверяется выборка до 8 внутренних ссылок;
+- активную эксплуатацию уязвимостей, fuzzing или перебор учётных данных;
 - анализ исходного кода закрытого backend;
-- полноценный accessibility audit.
+- полноценный WCAG-аудит и измерение цветового контраста.
 
-Security-результаты строятся по HTML и HTTP headers, доступным без аутентификации. Отсутствие найденного сигнала не означает, что сайт защищён от всех атак.
+Security-результаты строятся по публичному HTML и HTTP(S)-ответам. Это сигналы для ручной проверки, а не доказательство наличия или отсутствия уязвимостей.
 
 ---
 
@@ -686,8 +685,9 @@ Security-результаты строятся по HTML и HTTP headers, дос
 - [ ] OpenGraph visual preview
 - [ ] Twitter / X card diagnostics
 - [x] Bounded same-origin link sampling
-[ ] Full configurable website crawler
-[ ] Broken links scanner
+- [x] Basic performance and accessibility checks
+- [ ] Full configurable website crawler
+- [ ] Broken links scanner
 - [ ] Lighthouse integration
 - [ ] Core Web Vitals
 - [ ] Better HTML parser
