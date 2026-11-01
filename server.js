@@ -168,7 +168,7 @@ async function requestUrl(urlString, {method="GET", redirects=0, followRedirects
       lookup:createPinnedLookup(resolved),
       family:resolved.family,
       headers:{
-        "User-Agent":"WebCheck/0.3 Website Diagnostics",
+        "User-Agent":"WebCheck/0.5 Website Diagnostics",
         "Accept":method === "HEAD"
           ? "*/*"
           : "text/html,application/xhtml+xml;q=0.9,*/*;q=0.6",
@@ -758,5 +758,5 @@ const server = http.createServer((req, res) => {
 });
 
 server.listen(PORT, HOST, () => {
-  console.log(`WebCheck v0.4.1 running on http://${HOST}:${PORT}`);
+  console.log(`WebCheck v0.5.0 running on http://${HOST}:${PORT}`);
 });
