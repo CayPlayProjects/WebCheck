@@ -6,7 +6,7 @@
 
 **Проверка SEO, security, social metadata и технического состояния сайта — в одном понятном отчёте.**
 
-![Version](https://img.shields.io/badge/version-0.2.1-265CFF?style=flat-square)
+![Version](https://img.shields.io/badge/version-0.3.0-265CFF?style=flat-square)
 ![Node](https://img.shields.io/badge/Node.js-18%2B-111318?style=flat-square)
 ![License](https://img.shields.io/badge/license-MIT-FF5B2E?style=flat-square)
 ![Status](https://img.shields.io/badge/status-active-168A58?style=flat-square)
@@ -70,17 +70,19 @@ WebCheck не требует базы данных, регистрации по�
 
 ## Security
 
-WebCheck проверяет базовые security-сигналы:
+Расширенный пассивный Security Audit проверяет публично доступные HTTP-данные и HTML-разметку:
 
-```text
-HTTPS
-Content-Security-Policy
-Strict-Transport-Security
-X-Content-Type-Options
-Referrer-Policy
-```
+- HTTPS и основные security headers: CSP, HSTS, X-Content-Type-Options, Referrer-Policy;
+- clickjacking protection: X-Frame-Options и CSP frame-ancestors;
+- Permissions-Policy, COOP, COEP и CORP;
+- атрибуты Set-Cookie: Secure, HttpOnly и SameSite;
+- mixed content (HTTP-ресурсы на HTTPS-странице);
+- небезопасные form actions и password-поля на HTTP;
+- внешние скрипты без Subresource Integrity;
+- потенциально небезопасные CSP script-src директивы;
+- избыточное раскрытие технологий через Server и X-Powered-By.
 
-> WebCheck не является полноценным сканером уязвимостей и не пытается взламывать или атаковать сайт. Это диагностический инструмент для проверки публично доступных HTTP-данных.
+Проверки неэксплуатационные: WebCheck не отправляет exploit payloads, не перебирает учётные данные и не пытается получить доступ к закрытым ресурсам. Результаты являются сигналами для ручной проверки, а не подтверждением отсутствия уязвимостей.
 
 ## Social
 
@@ -329,7 +331,7 @@ WebCheck/
 - отчёт;
 - мобильную адаптацию.
 
-### `public/app.js`
+### `public/i18n.js`\n\nПереключение русского и английского интерфейса с сохранением выбора в браузере.\n\n### `public/app.js`
 
 Frontend-логика:
 
@@ -604,39 +606,38 @@ POST /api/check
 
 # 12 / Ограничения текущей версии
 
-WebCheck v0.2.1 — это быстрый диагностический инструмент.
+WebCheck v0.3.0 — это пассивный диагностический инструмент, а не полноценный penetration-testing scanner.
 
 Он пока не выполняет:
 
 - JavaScript rendering страницы;
-- Lighthouse audit;
-- Core Web Vitals из реальных пользователей;
-- глубокое сканирование всего сайта;
-- проверку всех внутренних ссылок;
-- поиск уязвимостей;
-- анализ JavaScript bundle;
+- Lighthouse audit и измерение Core Web Vitals;
+- глубокое сканирование всего сайта и всех внутренних ссылок;
+- активную эксплуатацию уязвимостей или fuzzing;
+- анализ исходного кода закрытого backend;
 - полноценный accessibility audit.
 
-Большая часть текущих проверок выполняется по HTML и HTTP headers главной страницы.
+Security-результаты строятся по HTML и HTTP headers, доступным без аутентификации. Отсутствие найденного сигнала не означает, что сайт защищён от всех атак.
 
 ---
 
 # 13 / Roadmap
 
-```text
-[ ] OpenGraph visual preview
-[ ] Twitter / X card diagnostics
-[ ] Broken links scanner
-[ ] Lighthouse integration
-[ ] Core Web Vitals
-[ ] Better HTML parser
-[ ] JSON report export
-[ ] PDF report export
-[ ] Scan history
-[ ] Shareable report
-[ ] Rate limiting
-[ ] Docker image
-```
+- [x] Russian / English interface switch
+- [x] Expanded passive Security Audit
+- [x] Security audit unit tests and CI checks
+- [ ] OpenGraph visual preview
+- [ ] Twitter / X card diagnostics
+- [ ] Broken links scanner
+- [ ] Lighthouse integration
+- [ ] Core Web Vitals
+- [ ] Better HTML parser
+- [ ] JSON report export
+- [ ] PDF report export
+- [ ] Scan history
+- [ ] Shareable report
+- [ ] Rate limiting
+- [ ] Docker image
 
 ---
 
