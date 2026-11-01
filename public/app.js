@@ -13,6 +13,15 @@ const toast = $("#toast");
 let lastReport = null;
 let toastTimer = null;
 let loadingTimer = null;
+let historyStore = null;
+
+try{
+  if(window.WebCheckHistory&&window.localStorage){
+    historyStore=window.WebCheckHistory.createHistoryStore(window.localStorage);
+  }
+}catch{
+  historyStore=null;
+}
 
 function showToast(message, isError=false){
   toast.textContent = message;
@@ -20,6 +29,90 @@ function showToast(message, isError=false){
   toast.classList.add("show");
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => toast.classList.remove("show"), 2400);
+}
+
+function renderHistoryList(){
+  const list=$("#historyList");
+  const empty=$("#historyEmpty");
+  if(!list||!empty) return;
+  const entries=historyStore?historyStore.list():[];
+  $("#historyCount").textContent=`${entries.length} / 8`;
+  empty.hidden=entries.length>0;
+  list.innerHTML=entries.map(entry=>{
+    const report=entry.report;
+    const date=new Date(report.checkedAt||entry.savedAt);
+    const dateText=Number.isNaN(date.getTime())?entry.savedAt:date.toLocaleString();
+    return `
+      <article class="history-row">
+        <div class="history-host">
+          <strong>${escapeHtml(report.host)}</strong>
+          <span>${escapeHtml(dateText)}</span>
+        </div>
+        <div class="history-score score-${Number(report.score)>=75?"good":Number(report.score)>=50?"medium":"low"}">
+          <strong>${Number(report.score)||0}</strong><small>/100</small>
+        </div>
+        <div class="history-actions">
+          <button type="button" data-history-action="open" data-entry-id="${escapeHtml(entry.id)}">OPEN</button>
+          <button type="button" data-history-action="delete" data-entry-id="${escapeHtml(entry.id)}" aria-label="Delete ${escapeHtml(report.host)} history entry">×</button>
+        </div>
+      </article>`;
+  }).join("");
+}
+
+function previousReportFor(data,historyEntryId){
+  if(!historyStore) return null;
+  const entries=historyStore.list();
+  let candidates=entries;
+  if(historyEntryId){
+    const index=entries.findIndex(item=>item.id===historyEntryId);
+    candidates=index>=0?entries.slice(index+1):[];
+  }
+  const host=String(data.host||"").toLowerCase();
+  return candidates.find(item=>String(item.report.host||"").toLowerCase()===host)?.report||null;
+}
+
+function renderComparison(current,previous){
+  const section=$("#comparisonSection");
+  if(!section) return;
+  if(!previous||!window.WebCheckHistory){
+    section.hidden=true;
+    return;
+  }
+  const comparison=window.WebCheckHistory.compareReports(current,previous);
+  const delta=comparison.scoreDelta;
+  const deltaClass=delta>0?"improved":delta<0?"worsened":"unchanged";
+  const deltaLabel=(delta>0?"+":"")+delta;
+  $("#comparisonSummary").innerHTML=`
+    <div class="comparison-score">
+      <span>OVERALL SCORE</span>
+      <strong>${comparison.currentScore}</strong>
+      <small>was ${comparison.previousScore}</small>
+    </div>
+    <div class="comparison-delta ${deltaClass}">
+      <strong>${escapeHtml(deltaLabel)}</strong>
+      <span>${delta>0?"points improved":delta<0?"points lower":"no score change"}</span>
+    </div>
+    <div class="comparison-broken">
+      <span>BROKEN PAGES</span>
+      <strong>${comparison.brokenPagesDelta>0?"+":""}${comparison.brokenPagesDelta}</strong>
+      <small>change since last scan</small>
+    </div>`;
+  $("#comparisonCategories").innerHTML=Object.entries(comparison.categories).map(([name,item])=>`
+    <div class="comparison-category">
+      <span>${escapeHtml(name.toUpperCase())}</span>
+      <strong>${item.current===null?"—":item.current}</strong>
+      <small class="${item.delta>0?"improved":item.delta<0?"worsened":"unchanged"}">${item.delta===null?"—":(item.delta>0?"+":"")+item.delta}</small>
+    </div>`).join("");
+  const labels={improved:"IMPROVED",worsened:"REGRESSED",new:"NEW",resolved:"REMOVED",changed:"CHANGED"};
+  $("#comparisonChanges").innerHTML=comparison.changes.length
+    ? comparison.changes.map(item=>`
+      <div class="comparison-change ${escapeHtml(item.state)}">
+        <span>${escapeHtml(labels[item.state]||item.state.toUpperCase())}</span>
+        <strong>${escapeHtml(item.label)}</strong>
+        <small>${escapeHtml(item.previous||"—")} → ${escapeHtml(item.current||"—")}</small>
+      </div>`).join("")
+    : '<p class="comparison-empty">No checklist status changes since the previous saved scan.</p>';
+  section.hidden=false;
 }
 
 function normalizeInput(value){
@@ -72,8 +165,15 @@ function overallText(score){
   return ["E","Нужна базовая техническая доработка сайта."];
 }
 
-function renderReport(data){
+function renderReport(data,{historyEntryId=null,saveToHistory=false}={}){
   lastReport = data;
+  const previousReport=previousReportFor(data,historyEntryId);
+  if(saveToHistory&&historyStore){
+    const saved=historyStore.save(data);
+    if(!saved.saved) showToast("History could not be saved in this browser",true);
+    renderHistoryList();
+  }
+  renderComparison(data,previousReport);
   const [grade, description] = overallText(data.score);
 
   $("#siteHost").textContent = data.host || "Website";
@@ -255,6 +355,7 @@ function renderReport(data){
   stopLoadingAnimation();
   loadingPanel.hidden = true;
   manifest.hidden = true;
+  $("#historyPanel").hidden = true;
   results.hidden = false;
   results.scrollIntoView({behavior:"smooth", block:"start"});
 }
@@ -304,11 +405,12 @@ async function runCheck(rawValue){
       throw new Error(data.error || "Не удалось проверить сайт");
     }
 
-    renderReport(data);
+    renderReport(data,{saveToHistory:true});
   }catch(error){
     stopLoadingAnimation();
     loadingPanel.hidden = true;
     manifest.hidden = false;
+    $("#historyPanel").hidden = false;
     showToast(error.message || "Ошибка проверки", true);
   }finally{
     checkButton.disabled = false;
@@ -328,10 +430,40 @@ form.addEventListener("submit", event => {
 $("#newCheckButton").addEventListener("click", () => {
   results.hidden = true;
   manifest.hidden = false;
+  $("#historyPanel").hidden = false;
+  renderHistoryList();
   input.value = "";
   window.scrollTo({top:0, behavior:"smooth"});
   setTimeout(() => input.focus(), 300);
 });
+
+$("#historyList").addEventListener("click", event=>{
+  const button=event.target.closest("button[data-history-action]");
+  if(!button||!historyStore) return;
+  const entry=historyStore.list().find(item=>item.id===button.dataset.entryId);
+  if(!entry) return;
+
+  if(button.dataset.historyAction==="open"){
+    input.value=entry.report.requestedUrl||entry.report.finalUrl||"";
+    renderReport(entry.report,{historyEntryId:entry.id});
+    return;
+  }
+  if(button.dataset.historyAction==="delete"){
+    historyStore.remove(entry.id);
+    renderHistoryList();
+    showToast("History entry deleted");
+  }
+});
+
+$("#clearHistoryButton").addEventListener("click",()=>{
+  if(!historyStore) return;
+  if(!window.confirm("Clear all saved WebCheck reports from this browser?")) return;
+  historyStore.clear();
+  renderHistoryList();
+  showToast("History cleared");
+});
+
+renderHistoryList();
 
 $("#repeatCheckButton").addEventListener("click", () => {
   if(lastReport) runCheck(lastReport.requestedUrl);
