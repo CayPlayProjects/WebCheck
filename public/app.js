@@ -110,16 +110,92 @@ function renderReport(data){
     </article>
   `).join("");
 
-  const linkResults = data.linkAudit?.results || [];
-  $("#linkAuditGrid").innerHTML = linkResults.length
-    ? linkResults.map(item => `
+  const siteCrawl = data.siteCrawl || null;
+  const crawlPages = siteCrawl?.pages || [];
+  const crawlStats = siteCrawl ? [
+    ["PAGES SCANNED", siteCrawl.visited],
+    ["DISCOVERED", siteCrawl.discovered],
+    ["BROKEN", siteCrawl.broken],
+    ["REDIRECTS", siteCrawl.redirects],
+    ["ROBOTS SKIPPED", siteCrawl.skippedByRobots],
+    ["SEO WARNINGS", siteCrawl.pagesWithSeoWarnings]
+  ] : [];
+  $("#crawlerStats").innerHTML = crawlStats.map(([label,value]) => `
+    <div class="crawler-stat"><span>${escapeHtml(label)}</span><strong>${Number(value)||0}</strong></div>
+  `).join("");
+
+  const crawlStatusLabels = {
+    root:"ROOT", ok:"OK", broken:"BROKEN", redirect:"REDIRECT",
+    "external-redirect":"EXTERNAL REDIRECT", unverified:"UNVERIFIED",
+    "robots-blocked":"ROBOTS BLOCKED"
+  };
+  $("#linkAuditGrid").innerHTML = crawlPages.length
+    ? crawlPages.map(item => `
       <article class="link-audit-row ${escapeHtml(item.status)}">
-        <span class="link-audit-status">${escapeHtml(item.status.toUpperCase())}</span>
-        <a href="${escapeHtml(item.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(item.url)}</a>
+        <span class="link-audit-status">${escapeHtml(crawlStatusLabels[item.status] || item.status.toUpperCase())} · D${Number(item.depth)||0}</span>
+        <div class="crawl-page-copy">
+          <a href="${escapeHtml(item.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(item.url)}</a>
+          <small>${escapeHtml(item.title || item.error || "")}</small>
+        </div>
         <span class="link-audit-code">${item.statusCode || "—"} ${escapeHtml(item.statusText || "")}</span>
       </article>
     `).join("")
-    : '<p class="link-audit-empty">No crawlable same-origin links were found in the sample.</p>';
+    : '<p class="link-audit-empty">No pages were crawled.</p>';
+
+  const lighthouseSection = $("#lighthouseSection");
+  const lighthouseContent = $("#lighthouseContent");
+  const lighthouse = data.lighthouse;
+  lighthouseSection.hidden = !lighthouse;
+  if(lighthouse?.status === "error"){
+    lighthouseContent.innerHTML = `
+      <div class="lighthouse-error">
+        <strong>Lighthouse could not complete</strong>
+        <p>${escapeHtml(lighthouse.error || "The PageSpeed service did not return a report.")}</p>
+        <small>The regular WebCheck report is still available. You can try Lighthouse again separately.</small>
+      </div>`;
+  }else if(lighthouse?.status === "completed"){
+    const lighthouseNames = {
+      performance:"Performance",
+      accessibility:"Accessibility",
+      bestPractices:"Best Practices",
+      seo:"SEO"
+    };
+    const scoreCards = Object.entries(lighthouse.scores || {}).map(([key,value]) => `
+      <article class="lighthouse-score-card">
+        <span>${escapeHtml(lighthouseNames[key] || key)}</span>
+        <strong>${value===null ? "—" : value}</strong>
+        <i><b style="width:${value===null?0:value}%"></b></i>
+      </article>
+    `).join("");
+    const metricCards = Object.entries(lighthouse.metrics || {}).map(([key,item]) => `
+      <article class="lighthouse-metric">
+        <span>${escapeHtml(item.label)}</span>
+        <strong>${escapeHtml(item.value)}</strong>
+      </article>
+    `).join("");
+    const opportunities = (lighthouse.opportunities || []).map(item => `
+      <article class="lighthouse-opportunity">
+        <div>
+          <strong>${escapeHtml(item.title)}</strong>
+          <p>${escapeHtml(item.description)}</p>
+        </div>
+        <span>${item.savingsMs ? Math.round(item.savingsMs/100)/10 + " s" : escapeHtml(item.displayValue || "Review")}</span>
+      </article>
+    `).join("");
+    const warnings = (lighthouse.warnings || []).length
+      ? `<div class="lighthouse-warnings"><strong>Run warnings</strong><ul>${lighthouse.warnings.map(item=>`<li>${escapeHtml(item)}</li>`).join("")}</ul></div>`
+      : "";
+    lighthouseContent.innerHTML = `
+      <div class="lighthouse-meta">${escapeHtml(lighthouse.provider || "Google PageSpeed Insights")} · ${escapeHtml(lighthouse.strategy || "")} · Lighthouse ${escapeHtml(lighthouse.lighthouseVersion || "—")}</div>
+      <div class="lighthouse-score-grid">${scoreCards}</div>
+      <div class="lighthouse-metric-grid">${metricCards}</div>
+      <div class="lighthouse-opportunities">
+        <h4>Largest improvement opportunities</h4>
+        ${opportunities || '<p class="link-audit-empty">No high-impact opportunities were returned.</p>'}
+      </div>
+      ${warnings}
+      <p class="lighthouse-disclaimer">Lab measurements are simulated in Google's analysis environment. They can vary between runs and are not field data from your visitors.</p>`;
+  }
 
   $("#recommendationCount").textContent = data.recommendations.length;
   $("#recommendations").innerHTML = data.recommendations.length
@@ -158,6 +234,10 @@ function renderReport(data){
     ["TLS certificate expiry", data.headers.tls?.validTo || "—"],
     ["Internal links checked", String(data.linkAudit?.checked ?? 0)],
     ["Broken internal links", String(data.linkAudit?.broken ?? 0)],
+    ["Pages crawled", String(data.siteCrawl?.visited ?? 0)],
+    ["Crawler depth", String(data.siteCrawl?.maxDepth ?? "—")],
+    ["Robots skipped", String(data.siteCrawl?.skippedByRobots ?? 0)],
+    ["Lighthouse mode", data.lighthouse?.strategy || "Not run"],
     ["Content-Type", data.headers.contentType || "—"],
     ["Server", data.headers.server || "Not disclosed"],
     ["Cache-Control", data.headers.cacheControl || "—"]
@@ -199,7 +279,18 @@ async function runCheck(rawValue){
     const response = await fetch("/api/check", {
       method:"POST",
       headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({url})
+      body:JSON.stringify({
+        url,
+        crawl:{
+          depth:Number($("#crawlDepth").value)||2,
+          maxPages:Number($("#crawlPages").value)||10
+        },
+        lighthouse:{
+          enabled:$("#lighthouseEnabled").checked,
+          strategy:$("#lighthouseStrategy").value
+        },
+        locale:document.documentElement.lang==="en" ? "en" : "ru"
+      })
     });
 
     let data;
@@ -224,6 +315,10 @@ async function runCheck(rawValue){
     $("span", checkButton).textContent = "START SCAN";
   }
 }
+
+$("#lighthouseEnabled").addEventListener("change", () => {
+  $("#lighthouseStrategyWrap").hidden = !$("#lighthouseEnabled").checked;
+});
 
 form.addEventListener("submit", event => {
   event.preventDefault();
@@ -281,7 +376,10 @@ $("#copyReportButton").addEventListener("click", async () => {
     ...lastReport.checks.map(c => `${humanStatus(c.status)} | ${c.category.toUpperCase()} | ${c.label}: ${c.value ?? "—"}`),
     "",
     "Internal links:",
-    ...(lastReport.linkAudit?.results || []).map(link => link.status.toUpperCase() + " | " + link.statusCode + " | " + link.url),
+    ...(lastReport.siteCrawl?.pages || []).map(page => page.status.toUpperCase() + " | depth " + page.depth + " | " + page.statusCode + " | " + page.url),
+    "",
+    "Lighthouse:",
+    ...(lastReport.lighthouse?.status === "completed" ? Object.entries(lastReport.lighthouse.scores || {}).map(([name,value]) => name + ": " + value) : [lastReport.lighthouse?.error || "Not run"]),
     "",
     "Recommendations:",
     ...(lastReport.recommendations.length
