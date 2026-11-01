@@ -200,7 +200,7 @@ function renderReport(data,{historyEntryId=null,saveToHistory=false}={}){
   $("#metricRedirects").textContent = data.redirects;
 
   $("#checksGrid").innerHTML = data.checks.map(check => `
-    <article class="check-row ${check.status}">
+    <article class="check-row ${escapeHtml(check.status)}">
       <span class="check-status">${check.status === "pass" ? "✓" : check.status === "warn" ? "!" : "×"}</span>
       <span class="check-category">${escapeHtml(check.category)}</span>
       <div class="check-main">
@@ -307,7 +307,7 @@ function renderReport(data,{historyEntryId=null,saveToHistory=false}={}){
           <strong>${escapeHtml(rec.title)}</strong>
           <p>${escapeHtml(rec.text)}</p>
         </div>
-        <span class="rec-priority ${rec.priority}">${rec.priority === "high" ? "IMPORTANT" : "IMPROVE"}</span>
+        <span class="rec-priority ${escapeHtml(rec.priority)}">${rec.priority === "high" ? "IMPORTANT" : "IMPROVE"}</span>
       </article>
     `).join("")
     : `
