@@ -6,7 +6,7 @@
 
 **Проверка SEO, security, social metadata и технического состояния сайта — в одном понятном отчёте.**
 
-![Version](https://img.shields.io/badge/version-0.3.0-265CFF?style=flat-square)
+![Version](https://img.shields.io/badge/version-0.4.0-265CFF?style=flat-square)
 ![Node](https://img.shields.io/badge/Node.js-18%2B-111318?style=flat-square)
 ![License](https://img.shields.io/badge/license-MIT-FF5B2E?style=flat-square)
 ![Status](https://img.shields.io/badge/status-active-168A58?style=flat-square)
@@ -30,7 +30,7 @@ DATABASE     not required
 Вместо огромного отчёта из десятков непонятных метрик он показывает:
 
 - общий балл сайта от `0` до `100`;
-- отдельные оценки по четырём направлениям;
+- отдельные оценки по шести направлениям: SEO, Security, Social, Technical, Performance и Accessibility;
 - что уже настроено правильно;
 - что отсутствует;
 - что стоит исправить в первую очередь;
@@ -80,7 +80,9 @@ WebCheck не требует базы данных, регистрации по�
 - небезопасные form actions и password-поля на HTTP;
 - внешние скрипты без Subresource Integrity;
 - потенциально небезопасные CSP script-src директивы;
-- избыточное раскрытие технологий через Server и X-Powered-By.
+- избыточное раскрытие технологий через Server и X-Powered-By;
+- версию TLS и оставшийся срок действия сертификата;
+- ссылки с target=_blank без rel=noopener.
 
 Проверки неэксплуатационные: WebCheck не отправляет exploit payloads, не перебирает учётные данные и не пытается получить доступ к закрытым ресурсам. Результаты являются сигналами для ручной проверки, а не подтверждением отсутствия уязвимостей.
 
@@ -91,6 +93,39 @@ WebCheck не требует базы данных, регистрации по�
 - `og:title`
 - `og:description`
 - `og:image`
+- Twitter/X Card metadata
+
+## Performance
+
+Пассивная оценка HTML и первого HTTP-ответа:
+
+- размер HTML-документа;
+- время до получения первых HTTP-заголовков (TTFB);
+- число ссылок на изображения, скрипты и стили;
+- скрипты, способные блокировать разбор HTML;
+- lazy loading изображений;
+- указание размеров изображений;
+- наличие политики кэширования.
+
+Это не заменяет браузерные Lighthouse/Core Web Vitals измерения: WebCheck не запускает JavaScript в браузере.
+
+## Accessibility
+
+Статические проверки HTML:
+
+- alt у изображений;
+- уникальность id;
+- подписи полей форм;
+- доступные имена кнопок и ссылок;
+- основной landmark;
+- порядок keyboard tab navigation;
+- заголовки таблиц.
+
+Эти сигналы помогают найти частые проблемы, но не являются полноценным WCAG-аудитом и не измеряют цветовой контраст.
+
+## Internal links
+
+WebCheck выбирает до 8 уникальных внутренних ссылок с того же origin и проверяет HTTP-статусы методом HEAD. Проверка ограничена по количеству запросов и не следует за внешними редиректами. Ответы 403/405 и сетевые ошибки отмечаются как непроверенные, а не как доказанные неработающие ссылки.
 
 ## Technical
 
@@ -99,6 +134,8 @@ WebCheck также показывает:
 - HTTP status;
 - время первого ответа;
 - количество редиректов;
+- TLS protocol и информацию о сроке действия сертификата;
+- выборочную проверку внутренних ссылок того же сайта;
 - размер загруженного HTML;
 - наличие favicon;
 - финальный URL после редиректов.
@@ -141,6 +178,17 @@ v22.18.0
 WebCheck/
 ├── public/
 ├── server.js
+├── security-audit.js
+├── seo-audit.js
+├── performance-audit.js
+├── accessibility-audit.js
+├── link-audit.js
+├── test/
+│   ├── security-audit.test.js
+│   ├── seo-audit.test.js
+│   ├── performance-audit.test.js
+│   ├── accessibility-audit.test.js
+│   └── link-audit.test.js
 ├── package.json
 ├── README.md
 ├── LICENSE
@@ -308,6 +356,7 @@ WebCheck/
 │   ├── index.html
 │   ├── styles.css
 │   ├── app.js
+│   ├── i18n.js
 │   └── favicon.svg
 │
 ├── server.js
@@ -341,6 +390,14 @@ Frontend-логика:
 - category score;
 - рекомендации;
 - копирование отчёта.
+
+### Audit modules
+
+- `security-audit.js` — пассивные проверки публичных security-сигналов;
+- `seo-audit.js` — качество метаданных, canonical, robots, JSON-LD и heading hierarchy;
+- `performance-audit.js` — вес HTML, TTFB и статические признаки загрузки;
+- `accessibility-audit.js` — базовые проверки доступности HTML;
+- `link-audit.js` — выборочная проверка внутренних ссылок.
 
 ### `server.js`
 
@@ -606,7 +663,7 @@ POST /api/check
 
 # 12 / Ограничения текущей версии
 
-WebCheck v0.3.0 — это пассивный диагностический инструмент, а не полноценный penetration-testing scanner.
+WebCheck v0.4.0 — это пассивный диагностический инструмент, а не полноценный penetration-testing scanner.
 
 Он пока не выполняет:
 
@@ -628,7 +685,9 @@ Security-результаты строятся по HTML и HTTP headers, дос
 - [x] Security audit unit tests and CI checks
 - [ ] OpenGraph visual preview
 - [ ] Twitter / X card diagnostics
-- [ ] Broken links scanner
+- [x] Bounded same-origin link sampling
+[ ] Full configurable website crawler
+[ ] Broken links scanner
 - [ ] Lighthouse integration
 - [ ] Core Web Vitals
 - [ ] Better HTML parser
