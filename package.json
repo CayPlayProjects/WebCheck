@@ -8,7 +8,7 @@
     "start": "node server.js",
     "dev": "node --watch server.js",
     "test": "node --test",
-    "check": "node --check server.js && node --check security-audit.js && node --check seo-audit.js && node --check performance-audit.js && node --check accessibility-audit.js && node --check link-audit.js && node --check public/app.js && node --check public/i18n.js && node --check rate-limit.js"
+    "check": "node --check server.js && node --check security-audit.js && node --check seo-audit.js && node --check performance-audit.js && node --check accessibility-audit.js && node --check link-audit.js && node --check public/app.js && node --check public/i18n.js && node --check rate-limit.js && node --check ip-safety.js"
   },
   "engines": {
     "node": ">=18"
