@@ -106,5 +106,5 @@ test("compares scores, categories and changed checks",()=>{
   assert.equal(comparison.scoreDelta,16);
   assert.equal(comparison.categories.seo.delta,20);
   assert.equal(comparison.brokenPagesDelta,-2);
-  assert.deepEqual(comparison.changes.map(item=>item.state).sort(),["improved","new","resolved","worsened"]);
+  assert.deepEqual(comparison.changes.map(item=>item.state).sort(),["improved","new","removed","worsened"]);
 });
