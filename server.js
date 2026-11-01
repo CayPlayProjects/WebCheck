@@ -154,6 +154,24 @@ function createPinnedLookup(resolved){
   };
 }
 
+function getTlsDetails(response){
+  const socket=response && response.socket;
+  if(!socket || typeof socket.getProtocol!=="function") return null;
+  const certificate=typeof socket.getPeerCertificate==="function" ? socket.getPeerCertificate() : {};
+  const validTo=certificate && certificate.valid_to ? certificate.valid_to : "";
+  const expiry=validTo ? Date.parse(validTo) : NaN;
+  return {
+    protocol:socket.getProtocol() || "",
+    authorized:socket.authorized===true,
+    authorizationError:socket.authorizationError || "",
+    issuer:certificate && certificate.issuer ? certificate.issuer.O || certificate.issuer.CN || "" : "",
+    subject:certificate && certificate.subject ? certificate.subject.CN || "" : "",
+    validFrom:certificate && certificate.valid_from ? certificate.valid_from : "",
+    validTo,
+    daysToExpiry:Number.isFinite(expiry) ? Math.floor((expiry-Date.now())/86400000) : null
+  };
+}
+
 async function requestUrl(urlString, {method="GET", redirects=0, followRedirects=true} = {}){
   if(redirects > MAX_REDIRECTS){
     throw new Error("Слишком много редиректов");
@@ -187,6 +205,7 @@ async function requestUrl(urlString, {method="GET", redirects=0, followRedirects
     }, response => {
       const responseTimeMs = Date.now() - started;
       const statusCode = response.statusCode || 0;
+      const tls = getTlsDetails(response);
 
       if([301,302,303,307,308].includes(statusCode) && response.headers.location){
         response.resume();
@@ -209,7 +228,8 @@ async function requestUrl(urlString, {method="GET", redirects=0, followRedirects
             responseTimeMs,
             finalUrl:url.toString(),
             redirects:0,
-            redirectTo:nextUrl
+            redirectTo:nextUrl,
+            tls
           });
           return;
         }
@@ -230,7 +250,8 @@ async function requestUrl(urlString, {method="GET", redirects=0, followRedirects
           bytes:0,
           responseTimeMs,
           finalUrl:url.toString(),
-          redirects:0
+          redirects:0,
+          tls
         });
         return;
       }
@@ -262,7 +283,8 @@ async function requestUrl(urlString, {method="GET", redirects=0, followRedirects
           bytes,
           responseTimeMs,
           finalUrl:url.toString(),
-          redirects:0
+          redirects:0,
+          tls
         });
       });
     });
@@ -475,6 +497,14 @@ async function analyze(rawUrl){
     makeCheck("security","nosniff","X-Content-Type-Options","nosniff запрещает MIME-sniffing.",nosniff ? "pass" : "warn",nosniff ? "nosniff" : "Не найден",5),
     makeCheck("security","referrer","Referrer-Policy","Политика referrer ограничивает передачу адреса источника.",referrer ? "pass" : "warn",headers["referrer-policy"] || "Не найден",5),
     ...securityAudit.checks,
+    ...(final.protocol==="https:" ? [
+      makeCheck("security","tlsProtocol","TLS protocol","The negotiated TLS version should be TLS 1.2 or newer.",
+        page.tls && /TLSv1\\.[23]/.test(page.tls.protocol) ? "pass" : "warn",
+        page.tls && page.tls.protocol ? page.tls.protocol : "TLS details unavailable",4),
+      makeCheck("security","tlsCertificate","TLS certificate","Checks the peer certificate validity and expiry date.",
+        page.tls && page.tls.authorized===true ? "pass" : "warn",
+        page.tls && page.tls.daysToExpiry!==null ? page.tls.daysToExpiry+" days until expiry" : "Certificate details unavailable",5)
+    ] : []),
     ...seoAudit.checks,
     ...performanceAudit.checks,
     ...accessibilityAudit.checks,
@@ -517,6 +547,8 @@ async function analyze(rawUrl){
   };
 
   add(final.protocol !== "https:","Переведите сайт на HTTPS","HTTPS — базовая защита трафика и стандарт для современного публичного сайта.","high");
+  add(final.protocol==="https:" && page.tls && page.tls.daysToExpiry!==null && page.tls.daysToExpiry<=30,
+    "Renew the TLS certificate","The TLS certificate expires in "+page.tls.daysToExpiry+" days. Renew it before expiry.",page.tls.daysToExpiry<=7?"high":"medium");
   add(!(page.statusCode >= 200 && page.statusCode < 400),"Исправьте HTTP-ответ",`Страница отвечает кодом ${page.statusCode}. Проверьте доступность и редиректы.`,"high");
   add(!title,"Добавьте title","Укажите короткий уникальный заголовок страницы в теге <title>.","high");
   add(!description,"Добавьте meta description","Кратко опишите содержание страницы для поискового сниппета.","medium");
@@ -569,6 +601,7 @@ async function analyze(rawUrl){
       csp:headers["content-security-policy"] || "",
       hsts:headers["strict-transport-security"] || "",
       referrerPolicy:headers["referrer-policy"] || "",
+      tls:page.tls,
       xFrameOptions:headers["x-frame-options"] || "",
       permissionsPolicy:headers["permissions-policy"] || "",
       crossOriginOpenerPolicy:headers["cross-origin-opener-policy"] || "",
