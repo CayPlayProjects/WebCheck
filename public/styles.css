@@ -727,3 +727,25 @@ main{
   .link-audit-row{grid-template-columns:1fr;gap:6px;padding:14px 0}
   .link-audit-code{text-align:left}
 }
+
+
+@media print{
+  @page{size:auto;margin:14mm}
+  html,body{background:#fff!important;color:#111!important}
+  .page-grid,.site-header,.hero,.manifest,.site-footer,.toast,.report-actions,.report-footer .new-scan{display:none!important}
+  main{width:100%!important;margin:0!important}
+  .report{display:block!important;padding:0!important}
+  .report-head{padding-bottom:12px!important}
+  .report-head h2{font-size:30px!important}
+  .scoreboard,.quick-stats,.report-section,.raw-details{break-inside:avoid}
+  .overall-score{print-color-adjust:exact;-webkit-print-color-adjust:exact}
+  .category-scores article,.recommendation,.check-row{print-color-adjust:exact;-webkit-print-color-adjust:exact}
+  .raw-details{display:block!important}
+  .raw-details summary{display:none!important}
+  .raw-details:not([open]) .details-table{display:block!important}
+  .report-section{margin-top:28px!important}
+  .check-row{min-height:48px!important}
+  .recommendation{min-height:60px!important}
+  .report-footer{margin-top:16px!important}
+  .report-footer>span{color:#333!important}
+}
