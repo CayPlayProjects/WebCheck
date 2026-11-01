@@ -169,6 +169,22 @@
       </div>
     </section>
 
+    <section class="history-panel" id="historyPanel">
+      <div class="history-heading">
+        <div>
+          <div class="manifest-index">03 / LOCAL WORKSPACE</div>
+          <h2>История проверок</h2>
+          <p>Последние отчёты хранятся только в этом браузере.</p>
+        </div>
+        <div class="history-heading-actions">
+          <span id="historyCount">0 / 8</span>
+          <button id="clearHistoryButton" type="button">CLEAR HISTORY</button>
+        </div>
+      </div>
+      <div class="history-list" id="historyList"></div>
+      <p class="history-empty" id="historyEmpty">Пока нет сохранённых отчётов. Запустите первую проверку сайта.</p>
+    </section>
+
     <section class="loading-screen" id="loadingPanel" hidden>
       <div class="loading-header">
         <span>SCAN IN PROGRESS</span>
@@ -231,9 +247,20 @@
         <div><span>REDIRECTS</span><strong id="metricRedirects">—</strong><small>before final URL</small></div>
       </div>
 
-      <div class="report-section">
+      <section class="report-section comparison-section" id="comparisonSection" hidden>
         <div class="section-title">
           <span>04</span>
+          <div><small>CHANGE SINCE PREVIOUS SCAN</small><h3>Сравнение с прошлой проверкой</h3></div>
+          <span class="section-line"></span>
+        </div>
+        <div class="comparison-summary" id="comparisonSummary"></div>
+        <div class="comparison-categories" id="comparisonCategories"></div>
+        <div class="comparison-changes" id="comparisonChanges"></div>
+      </section>
+
+      <div class="report-section">
+        <div class="section-title">
+          <span>05</span>
           <div><small>CHECKLIST</small><h3>Что найдено</h3></div>
           <span class="section-line"></span>
         </div>
