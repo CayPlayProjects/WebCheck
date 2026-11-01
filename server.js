@@ -752,5 +752,5 @@ const server = http.createServer((req, res) => {
 });
 
 server.listen(PORT, HOST, () => {
-  console.log(`WebCheck v0.4.0 running on http://${HOST}:${PORT}`);
+  console.log(`WebCheck v0.4.1 running on http://${HOST}:${PORT}`);
 });
