@@ -22,3 +22,13 @@ jobs:
         run: npm run check
       - name: Run tests
         run: npm test
+      - name: Create standalone project archive
+        if: matrix.node-version == '22.x'
+        run: zip -qr WebCheck-0.4.0.zip . -x ".git/*" "node_modules/*" "WebCheck-0.4.0.zip"
+      - name: Upload standalone project
+        if: matrix.node-version == '22.x'
+        uses: actions/upload-artifact@v4
+        with:
+          name: WebCheck-0.4.0
+          path: WebCheck-0.4.0.zip
+          retention-days: 14
