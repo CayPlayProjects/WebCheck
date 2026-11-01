@@ -64,7 +64,7 @@ test("ignores malformed saved JSON without throwing",()=>{
 
 test("does not discard all older reports when a new report exceeds the byte cap",()=>{
   const storage=memoryStorage();
-  const store=createHistoryStore(storage,{maxBytes:180});
+  const store=createHistoryStore(storage,{maxBytes:500});
   store.save(report({score:65}));
   const before=store.list();
   const result=store.save(report({score:99,checks:[{category:"seo",key:"huge",label:"Huge",status:"pass",value:"x".repeat(500)}]}));
