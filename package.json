@@ -1,14 +1,14 @@
 {
   "name": "webcheck",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "private": true,
-  "description": "Bilingual website diagnostics with configurable crawling, Lighthouse, SEO, security, performance and accessibility audits.",
+  "description": "Bilingual website diagnostics with configurable crawling, Lighthouse, local scan history and report comparison.",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
     "dev": "node --watch server.js",
     "test": "node --test",
-    "check": "node --check server.js && node --check security-audit.js && node --check seo-audit.js && node --check performance-audit.js && node --check accessibility-audit.js && node --check link-audit.js && node --check public/app.js && node --check public/i18n.js && node --check rate-limit.js && node --check ip-safety.js && node --check site-crawler.js && node --check lighthouse.js"
+    "check": "node --check server.js && node --check security-audit.js && node --check seo-audit.js && node --check performance-audit.js && node --check accessibility-audit.js && node --check link-audit.js && node --check public/app.js && node --check public/i18n.js && node --check rate-limit.js && node --check ip-safety.js && node --check site-crawler.js && node --check lighthouse.js && node --check public/history.js"
   },
   "engines": {
     "node": ">=18"
