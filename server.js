@@ -5,6 +5,10 @@ const path = require("path");
 const dns = require("dns");
 const net = require("net");
 const {runSecurityAudit} = require("./security-audit");
+const {runSeoAudit} = require("./seo-audit");
+const {runPerformanceAudit} = require("./performance-audit");
+const {runAccessibilityAudit} = require("./accessibility-audit");
+const {crawlInternalLinks} = require("./link-audit");
 
 const PORT = Number(process.env.PORT || 3000);
 const PUBLIC_DIR = path.join(__dirname, "public");
@@ -150,7 +154,7 @@ function createPinnedLookup(resolved){
   };
 }
 
-async function requestUrl(urlString, {method="GET", redirects=0} = {}){
+async function requestUrl(urlString, {method="GET", redirects=0, followRedirects=true} = {}){
   if(redirects > MAX_REDIRECTS){
     throw new Error("Слишком много редиректов");
   }
@@ -172,7 +176,7 @@ async function requestUrl(urlString, {method="GET", redirects=0} = {}){
       lookup:createPinnedLookup(resolved),
       family:resolved.family,
       headers:{
-        "User-Agent":"WebCheck/0.2 Website Diagnostics",
+        "User-Agent":"WebCheck/0.3 Website Diagnostics",
         "Accept":method === "HEAD"
           ? "*/*"
           : "text/html,application/xhtml+xml;q=0.9,*/*;q=0.6",
@@ -195,7 +199,22 @@ async function requestUrl(urlString, {method="GET", redirects=0} = {}){
           return;
         }
 
-        requestUrl(nextUrl, {method, redirects:redirects + 1})
+        if(!followRedirects){
+          resolve({
+            statusCode,
+            statusText:response.statusMessage || "",
+            headers:response.headers,
+            body:"",
+            bytes:0,
+            responseTimeMs,
+            finalUrl:url.toString(),
+            redirects:0,
+            redirectTo:nextUrl
+          });
+          return;
+        }
+
+        requestUrl(nextUrl, {method, redirects:redirects + 1, followRedirects})
           .then(result => resolve({...result, redirects:result.redirects + 1}))
           .catch(reject);
         return;
@@ -384,6 +403,12 @@ async function analyze(rawUrl){
   const html = page.body || "";
   const headers = page.headers;
   const securityAudit = runSecurityAudit({html, headers, protocol:final.protocol});
+  const seoAudit = runSeoAudit({html, finalUrl:page.finalUrl});
+  const performanceAudit = runPerformanceAudit({
+    html, htmlBytes:page.bytes, responseTimeMs:page.responseTimeMs, headers
+  });
+  const accessibilityAudit = runAccessibilityAudit({html});
+
 
   const title = firstMatch(html, /<title\b[^>]*>([\s\S]*?)<\/title>/i);
   const description = metaContent(html, "name", "description");
@@ -405,10 +430,19 @@ async function analyze(rawUrl){
 
   const origin = `${final.protocol}//${final.host}`;
 
-  const [robots, sitemap, favicon] = await Promise.all([
+  const [robots, sitemap, favicon, internalLinkAudit] = await Promise.all([
     quickExists(new URL("/robots.txt", origin).toString()),
     quickExists(new URL("/sitemap.xml", origin).toString()),
-    quickExists(faviconUrl)
+    quickExists(faviconUrl),
+    crawlInternalLinks(html, page.finalUrl, async targetUrl => {
+      const result = await requestUrl(targetUrl, {method:"HEAD", followRedirects:false});
+      return {
+        statusCode:result.statusCode,
+        statusText:result.statusText,
+        redirectTo:result.redirectTo,
+        status:result.statusCode===403 || result.statusCode===405 ? "blocked" : ""
+      };
+    }, {limit:8, concurrency:3})
   ]);
 
   const csp = Boolean(headers["content-security-policy"]);
@@ -440,14 +474,27 @@ async function analyze(rawUrl){
     makeCheck("security","hsts","HSTS","HSTS заставляет браузер использовать HTTPS.",hsts ? "pass" : final.protocol === "https:" ? "warn" : "fail",hsts ? "Настроен" : "Не найден",7),
     makeCheck("security","nosniff","X-Content-Type-Options","nosniff запрещает MIME-sniffing.",nosniff ? "pass" : "warn",nosniff ? "nosniff" : "Не найден",5),
     makeCheck("security","referrer","Referrer-Policy","Политика referrer ограничивает передачу адреса источника.",referrer ? "pass" : "warn",headers["referrer-policy"] || "Не найден",5),
-    ...securityAudit.checks
+    ...securityAudit.checks,
+    ...seoAudit.checks,
+    ...performanceAudit.checks,
+    ...accessibilityAudit.checks,
+    makeCheck(
+      "technical","internalLinks","Internal link audit",
+      "A small sample of same-origin links is checked with HEAD requests.",
+      internalLinkAudit.broken>0 ? "fail" : internalLinkAudit.unverified>0 || internalLinkAudit.redirects>0 ? "warn" : "pass",
+      internalLinkAudit.checked===0 ? "No crawlable internal links found" :
+        internalLinkAudit.broken+" broken / "+internalLinkAudit.checked+" checked",
+      5
+    )
   ];
 
   const categoryScores = {
     seo:calculateCategoryScore(checks,"seo"),
     security:calculateCategoryScore(checks,"security"),
     social:calculateCategoryScore(checks,"social"),
-    technical:calculateCategoryScore(checks,"technical")
+    technical:calculateCategoryScore(checks,"technical"),
+    performance:calculateCategoryScore(checks,"performance"),
+    accessibility:calculateCategoryScore(checks,"accessibility")
   };
 
   const totalWeight = checks.reduce((sum,item) => sum + item.weight,0);
@@ -459,7 +506,12 @@ async function analyze(rawUrl){
   let score = Math.round((earned / totalWeight) * 100);
   if(page.statusCode >= 400) score = Math.min(score, 30);
 
-  const recommendations = [...securityAudit.recommendations];
+  const recommendations = [
+    ...securityAudit.recommendations,
+    ...seoAudit.recommendations,
+    ...performanceAudit.recommendations,
+    ...accessibilityAudit.recommendations
+  ];
   const add = (condition,title,text,priority="medium") => {
     if(condition) recommendations.push({title,text,priority});
   };
@@ -479,6 +531,7 @@ async function analyze(rawUrl){
   add(final.protocol === "https:" && !hsts,"Включите HSTS","После стабильной настройки HTTPS добавьте Strict-Transport-Security.","medium");
   add(!nosniff,"Добавьте X-Content-Type-Options","Значение nosniff — простая полезная защита от MIME-sniffing.","medium");
   add(page.responseTimeMs > 2500,"Ускорьте серверный ответ","Первый ответ занимает больше 2.5 секунд. Проверьте backend, хостинг и кэширование.","high");
+  add(internalLinkAudit.broken > 0,"Исправьте неработающие внутренние ссылки",`В проверенной выборке найдено ${internalLinkAudit.broken} ссылок с HTTP-ошибками.`,"high");
 
   return {
     requestedUrl:requested.toString(),
@@ -493,7 +546,9 @@ async function analyze(rawUrl){
     categoryScores,
     checkedAt:new Date().toISOString(),
     checks,
-    recommendations:recommendations.slice(0,10),
+    recommendations:recommendations.sort((a,b) => (a.priority==="high"?0:1)-(b.priority==="high"?0:1)).slice(0,15),
+    linkAudit:internalLinkAudit,
+    auditMetrics:{performance:performanceAudit.metrics,accessibility:accessibilityAudit.metrics},
     meta:{
       title,
       description,
@@ -502,6 +557,7 @@ async function analyze(rawUrl){
       lang,
       charset,
       h1Count,
+      ...seoAudit.meta,
       ogTitle,
       ogDescription,
       ogImage
