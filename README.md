@@ -112,7 +112,20 @@ WebCheck не требует базы данных и регистрации п�
 
 По желанию можно включить отдельный Lighthouse-аудит через Google PageSpeed Insights API. Он возвращает лабораторные категории Performance, Accessibility, Best Practices и SEO, а также доступные метрики и рекомендации. Режим Mobile или Desktop можно выбрать перед запуском.
 
-При включении этой функции целевой URL передаётся Google PageSpeed Insights. Без этой галочки внешний сервис не вызывается. API-ключ необязателен, но для регулярного использования рекомендуется настроить `PAGESPEED_API_KEY`. Подробности: https://developers.google.com/speed/docs/insights/v5/get-started
+При включении этой функции целевой URL передаётся Google PageSpeed Insights. Без этой галочки внешний сервис не вызывается. API-ключ необязателен, но для регулярного использования рекомендуется настроить `PAGESPEED_API_KEY`.
+
+Windows CMD:
+```bat
+set PAGESPEED_API_KEY=YOUR_KEY && npm start
+```
+
+PowerShell:
+```powershell
+$env:PAGESPEED_API_KEY="YOUR_KEY"
+npm start
+```
+
+Не публикуйте ключ в репозитории и не вставляйте его в frontend. Подробности: https://developers.google.com/speed/docs/insights/v5/get-started
 
 Lighthouse-результаты — лабораторные измерения, а не реальные показатели посетителей. Для настоящих пользовательских данных нужен отдельный источник полевых метрик.
 
@@ -668,7 +681,16 @@ POST /api/check
 
 ```json
 {
-  "url": "https://example.com"
+  "url": "https://example.com",
+  "crawl": {
+    "depth": 2,
+    "maxPages": 10
+  },
+  "lighthouse": {
+    "enabled": false,
+    "strategy": "mobile"
+  },
+  "locale": "ru"
 }
 ```
 
