@@ -199,7 +199,7 @@ async function crawlSite({
       }
       const page=entry.page||{};
       const statusCode=Number(page.statusCode)||0;
-      let status=statusCode>=400?"broken":statusCode>=300?"redirect":statusCode>=200?"ok":"unverified";
+      let status=[401,403,405,429].includes(statusCode)?"blocked":statusCode>=400?"broken":statusCode>=300?"redirect":statusCode>=200?"ok":"unverified";
       const redirectTo=page.redirectTo||"";
       if(redirectTo){
         try{
@@ -227,7 +227,7 @@ async function crawlSite({
     discovered,skippedByRobots,
     broken:scanned.filter(item=>item.status==="broken").length,
     redirects:scanned.filter(item=>item.status==="redirect"||item.status==="external-redirect").length,
-    unverified:scanned.filter(item=>item.status==="unverified").length,
+    unverified:scanned.filter(item=>item.status==="unverified"||item.status==="blocked").length,
     pagesWithSeoWarnings:scanned.filter(item=>(item.seoIssues||0)>0).length,
     pages
   };
