@@ -57,3 +57,16 @@ test("does not flag a page without cookies or external scripts as insecure", () 
   assert.equal(result.checks.some(item => item.key === "cookieSecure"), false);
   assert.equal(result.checks.find(item => item.key === "scriptIntegrity").status, "pass");
 });
+
+test("detects target blank links without opener isolation", () => {
+  const unsafe = runSecurityAudit({
+    protocol:"https:",
+    html:'<a href="/external" target="_blank">Open</a>'
+  });
+  const safe = runSecurityAudit({
+    protocol:"https:",
+    html:'<a href="/external" target="_blank" rel="noopener noreferrer">Open</a>'
+  });
+  assert.equal(unsafe.checks.find(item => item.key === "externalLinkRel").status, "warn");
+  assert.equal(safe.checks.find(item => item.key === "externalLinkRel").status, "pass");
+});
