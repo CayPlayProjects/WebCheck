@@ -6,7 +6,7 @@
 
 **Проверка SEO, security, social metadata и технического состояния сайта — в одном понятном отчёте.**
 
-![Version](https://img.shields.io/badge/version-0.4.0-265CFF?style=flat-square)
+![Version](https://img.shields.io/badge/version-0.4.1-265CFF?style=flat-square)
 ![Node](https://img.shields.io/badge/Node.js-18%2B-111318?style=flat-square)
 ![License](https://img.shields.io/badge/license-MIT-FF5B2E?style=flat-square)
 ![Status](https://img.shields.io/badge/status-active-168A58?style=flat-square)
@@ -381,7 +381,11 @@ WebCheck/
 - отчёт;
 - мобильную адаптацию.
 
-### `public/i18n.js`\n\nПереключение русского и английского интерфейса с сохранением выбора в браузере.\n\n### `public/app.js`
+### `public/i18n.js`\n\nПереключение русского и английского интерфейса с сохранением выбора в браузере.\n\n### Report export
+
+Отчёт можно скопировать, скачать как JSON или отправить на печать и сохранить в PDF через системный диалог браузера.
+
+### `public/app.js`
 
 Frontend-логика:
 
@@ -695,11 +699,11 @@ Security-результаты строятся по публичному HTML и
 - [ ] Lighthouse integration
 - [ ] Core Web Vitals
 - [ ] Better HTML parser
-- [ ] JSON report export
-- [ ] PDF report export
+- [x] JSON report export
+- [x] Print-to-PDF report
 - [ ] Scan history
 - [ ] Shareable report
-- [ ] Rate limiting
+- [x] Rate limiting
 - [ ] Docker image
 
 ---
