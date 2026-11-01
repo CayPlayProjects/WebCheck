@@ -4,6 +4,7 @@ const fs = require("fs");
 const path = require("path");
 const dns = require("dns");
 const net = require("net");
+const {runSecurityAudit} = require("./security-audit");
 
 const PORT = Number(process.env.PORT || 3000);
 const PUBLIC_DIR = path.join(__dirname, "public");
@@ -382,6 +383,7 @@ async function analyze(rawUrl){
   const final = new URL(page.finalUrl);
   const html = page.body || "";
   const headers = page.headers;
+  const securityAudit = runSecurityAudit({html, headers, protocol:final.protocol});
 
   const title = firstMatch(html, /<title\b[^>]*>([\s\S]*?)<\/title>/i);
   const description = metaContent(html, "name", "description");
@@ -437,7 +439,8 @@ async function analyze(rawUrl){
     makeCheck("security","csp","Content-Security-Policy","CSP ограничивает нежелательные источники контента.",csp ? "pass" : "warn",csp ? "Настроен" : "Не найден",7),
     makeCheck("security","hsts","HSTS","HSTS заставляет браузер использовать HTTPS.",hsts ? "pass" : final.protocol === "https:" ? "warn" : "fail",hsts ? "Настроен" : "Не найден",7),
     makeCheck("security","nosniff","X-Content-Type-Options","nosniff запрещает MIME-sniffing.",nosniff ? "pass" : "warn",nosniff ? "nosniff" : "Не найден",5),
-    makeCheck("security","referrer","Referrer-Policy","Политика referrer ограничивает передачу адреса источника.",referrer ? "pass" : "warn",headers["referrer-policy"] || "Не найден",5)
+    makeCheck("security","referrer","Referrer-Policy","Политика referrer ограничивает передачу адреса источника.",referrer ? "pass" : "warn",headers["referrer-policy"] || "Не найден",5),
+    ...securityAudit.checks
   ];
 
   const categoryScores = {
@@ -456,7 +459,7 @@ async function analyze(rawUrl){
   let score = Math.round((earned / totalWeight) * 100);
   if(page.statusCode >= 400) score = Math.min(score, 30);
 
-  const recommendations = [];
+  const recommendations = [...securityAudit.recommendations];
   const add = (condition,title,text,priority="medium") => {
     if(condition) recommendations.push({title,text,priority});
   };
@@ -509,7 +512,14 @@ async function analyze(rawUrl){
       cacheControl:headers["cache-control"] || "",
       csp:headers["content-security-policy"] || "",
       hsts:headers["strict-transport-security"] || "",
-      referrerPolicy:headers["referrer-policy"] || ""
+      referrerPolicy:headers["referrer-policy"] || "",
+      xFrameOptions:headers["x-frame-options"] || "",
+      permissionsPolicy:headers["permissions-policy"] || "",
+      crossOriginOpenerPolicy:headers["cross-origin-opener-policy"] || "",
+      crossOriginEmbedderPolicy:headers["cross-origin-embedder-policy"] || "",
+      crossOriginResourcePolicy:headers["cross-origin-resource-policy"] || "",
+      setCookieCount:Array.isArray(headers["set-cookie"]) ? headers["set-cookie"].length : headers["set-cookie"] ? 1 : 0,
+      xPoweredBy:headers["x-powered-by"] || ""
     }
   };
 }
