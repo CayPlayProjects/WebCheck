@@ -57,7 +57,7 @@ function runSecurityAudit({html="", headers={}, protocol="https:"}={}){
   if(cookieCount){
     checks.push(check("cookieSecure","Cookie Secure flag",
       "Session cookies sent over HTTPS should use the Secure attribute.",
-      secure && cookiesWithoutSecure === 0 ? "pass" : secure ? "warn" : "info",
+      secure && cookiesWithoutSecure === 0 ? "pass" : "warn",
       secure ? `${cookieCount - cookiesWithoutSecure}/${cookieCount} cookies marked Secure` : "Site uses HTTP",4));
     checks.push(check("cookieHttpOnly","Cookie HttpOnly flag",
       "HttpOnly prevents JavaScript from reading cookies that do not need client-side access.",
@@ -73,10 +73,6 @@ function runSecurityAudit({html="", headers={}, protocol="https:"}={}){
       `${cookiesWithoutHttpOnly} cookie(s) were missing HttpOnly. Only add it where client-side access is not required.`);
     add(cookiesWithoutSameSite > 0,"Set explicit SameSite cookie policies",
       `${cookiesWithoutSameSite} cookie(s) did not declare SameSite.`);
-  }else{
-    checks.push(check("cookies","Set-Cookie headers",
-      "Checks cookie attributes when the server sets cookies.",
-      "info","No Set-Cookie header on this response",1));
   }
 
   const mixedResources = (source.match(/(?:src|href|poster)\s*=\s*["']http:\/\/[^"']+["']/gi) || []).length;
@@ -118,8 +114,8 @@ function runSecurityAudit({html="", headers={}, protocol="https:"}={}){
   const unsafeCsp = csp && /(?:^|;)\s*script-src[^;]*(?:'unsafe-inline'|'unsafe-eval')/i.test(csp);
   checks.push(check("cspUnsafeDirectives","CSP script directives",
     "Avoid unsafe-inline and unsafe-eval in script-src where the application permits.",
-    !csp ? "info" : unsafeCsp ? "warn" : "pass",
-    !csp ? "CSP unavailable" : unsafeCsp ? "Potentially permissive script-src directive" : "No unsafe script directive detected",5));
+    !unsafeCsp ? "pass" : "warn",
+    !csp ? "CSP unavailable; review the CSP header check" : unsafeCsp ? "Potentially permissive script-src directive" : "No unsafe script directive detected",5));
   add(unsafeCsp,"Tighten Content-Security-Policy",
     "The script-src directive includes unsafe-inline or unsafe-eval. Prefer nonces or hashes and remove unsafe directives when possible.","high");
 
