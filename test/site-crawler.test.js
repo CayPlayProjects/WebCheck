@@ -81,3 +81,16 @@ test("enforces the page limit and never fetches a cross-origin redirect destinat
   assert.ok(result.visited<=2);
   assert.ok(result.pages.some(page=>page.status==="external-redirect"));
 });
+
+test("treats access-control responses as blocked rather than confirmed broken pages",async()=>{
+  const result=await crawlSite({
+    startUrl:"https://example.test/",
+    rootPage:{statusCode:200,html:'<a href="/private">Private</a>',headers:{"content-type":"text/html"}},
+    maxDepth:1,
+    maxPages:2,
+    fetchPage:async()=>({statusCode:403,headers:{"content-type":"text/html"},body:"Forbidden"})
+  });
+  assert.equal(result.broken,0);
+  assert.equal(result.unverified,1);
+  assert.equal(result.pages.find(page=>page.url.endsWith("/private")).status,"blocked");
+});
