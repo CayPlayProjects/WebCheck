@@ -1,5 +1,7 @@
 "use strict";
 
+const {parseAttributes}=require("./seo-audit");
+
 function runPerformanceAudit({html="",htmlBytes=0,responseTimeMs=0,headers={}}={}){
   const source=String(html);
   const checks=[];
@@ -16,7 +18,10 @@ function runPerformanceAudit({html="",htmlBytes=0,responseTimeMs=0,headers={}}={
   const blockingScripts=scripts.filter(match=>!/\b(?:async|defer)\b/i.test(match[0])&&!/\btype\s*=\s*["']module["']/i.test(match[0]));
   const stylesheets=[...source.matchAll(/<link\b[^>]*>/gi)]
     .filter(match=>/\brel\s*=\s*["'][^"']*\bstylesheet\b/i.test(match[0])&&!/\bmedia\s*=\s*["']print["']/i.test(match[0]));
-  const resourceCount=images.length+scripts.length+stylesheets.length;
+  const imageResources=images.filter(match=>Boolean(parseAttributes(match[0]).src)).length;
+  const scriptResources=scripts.filter(match=>Boolean(parseAttributes(match[0]).src)).length;
+  const stylesheetResources=stylesheets.filter(match=>Boolean(parseAttributes(match[0]).href)).length;
+  const resourceCount=imageResources+scriptResources+stylesheetResources;
   const lazyImages=images.filter(match=>/\bloading\s*=\s*["']lazy["']/i.test(match[0])).length;
   const dimensionlessImages=images.filter(match=>!/\bwidth\s*=/.test(match[0])||!/\bheight\s*=/.test(match[0])).length;
 
