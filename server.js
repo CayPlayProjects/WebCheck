@@ -9,8 +9,14 @@ const {runSeoAudit} = require("./seo-audit");
 const {runPerformanceAudit} = require("./performance-audit");
 const {runAccessibilityAudit} = require("./accessibility-audit");
 const {crawlInternalLinks} = require("./link-audit");
+const {createRateLimiter} = require("./rate-limit");
 
 const PORT = Number(process.env.PORT || 3000);
+const HOST = process.env.HOST || "127.0.0.1";
+const MAX_CONCURRENT_SCANS = Math.max(1, Number(process.env.MAX_CONCURRENT_SCANS || 3));
+const RATE_LIMIT_MAX = Math.max(1, Number(process.env.RATE_LIMIT_MAX || 10));
+const rateLimiter = createRateLimiter({limit:RATE_LIMIT_MAX, windowMs:60000});
+let activeScans = 0;
 const PUBLIC_DIR = path.join(__dirname, "public");
 const MAX_HTML_BYTES = 2 * 1024 * 1024;
 const REQUEST_TIMEOUT = 10000;
@@ -24,12 +30,13 @@ const MIME = {
   ".json":"application/json; charset=utf-8"
 };
 
-function sendJson(res, status, payload){
+function sendJson(res, status, payload, extraHeaders={}){
   const body = JSON.stringify(payload);
   res.writeHead(status, {
     "Content-Type":"application/json; charset=utf-8",
     "Content-Length":Buffer.byteLength(body),
-    "Cache-Control":"no-store"
+    "Cache-Control":"no-store",
+    ...extraHeaders
   });
   res.end(body);
 }
@@ -178,12 +185,11 @@ async function requestUrl(urlString, {method="GET", redirects=0, followRedirects
   }
 
   const url = normalizeUrl(urlString);
+  const started = Date.now();
   const resolved = await resolvePublicAddress(url.hostname);
   const client = url.protocol === "https:" ? https : http;
 
   return new Promise((resolve, reject) => {
-    const started = Date.now();
-
     const request = client.request({
       protocol:url.protocol,
       hostname:url.hostname,
@@ -288,6 +294,12 @@ async function requestUrl(urlString, {method="GET", redirects=0, followRedirects
         });
       });
     });
+
+    const absoluteTimer = setTimeout(() => {
+      request.destroy(new Error("Проверка сайта превысила лимит времени"));
+    }, REQUEST_TIMEOUT);
+    if(typeof absoluteTimer.unref === "function") absoluteTimer.unref();
+    request.on("close", () => clearTimeout(absoluteTimer));
 
     request.on("timeout", () => {
       request.destroy(new Error("Сайт отвечает дольше 10 секунд"));
@@ -668,6 +680,15 @@ function serveStatic(req, res){
 
 const server = http.createServer((req, res) => {
   if(req.method === "POST" && req.url === "/api/check"){
+    const clientIp = req.socket.remoteAddress || "unknown";
+    const rate = rateLimiter.consume(clientIp);
+    if(!rate.allowed){
+      sendJson(res, 429, {error:"Слишком много проверок. Повторите попытку немного позже."}, {
+        "Retry-After":String(rate.retryAfter)
+      });
+      return;
+    }
+
     let body = "";
     let rejected = false;
 
@@ -685,14 +706,31 @@ const server = http.createServer((req, res) => {
     req.on("end", async () => {
       if(rejected || res.headersSent) return;
 
+      let payload;
       try{
-        const payload = JSON.parse(body || "{}");
+        payload = JSON.parse(body || "{}");
+      }catch{
+        sendJson(res, 400, {error:"Некорректный JSON в запросе"});
+        return;
+      }
+
+      if(activeScans >= MAX_CONCURRENT_SCANS){
+        sendJson(res, 503, {error:"Сканер занят. Повторите запрос через несколько секунд."}, {
+          "Retry-After":"5"
+        });
+        return;
+      }
+
+      activeScans++;
+      try{
         const result = await analyze(payload.url);
         sendJson(res, 200, result);
       }catch(error){
         sendJson(res, 400, {
           error:error && error.message ? error.message : "Ошибка проверки сайта"
         });
+      }finally{
+        activeScans--;
       }
     });
 
@@ -713,6 +751,6 @@ const server = http.createServer((req, res) => {
   res.writeHead(405, {"Allow":"GET, HEAD, POST"}).end("Method Not Allowed");
 });
 
-server.listen(PORT, "0.0.0.0", () => {
-  console.log(`WebCheck v0.4.0 running on http://localhost:${PORT}`);
+server.listen(PORT, HOST, () => {
+  console.log(`WebCheck v0.4.0 running on http://${HOST}:${PORT}`);
 });
