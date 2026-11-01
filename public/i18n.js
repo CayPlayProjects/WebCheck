@@ -259,6 +259,15 @@
     "Certificate details unavailable":"Данные сертификата недоступны"
   });
 
+  Object.assign(translations, {
+    "DOWNLOAD JSON":"СКАЧАТЬ JSON",
+    "PRINT / PDF":"ПЕЧАТЬ / PDF",
+    "JSON report downloaded":"JSON-отчёт скачан",
+    "СКАЧАТЬ JSON":"DOWNLOAD JSON",
+    "ПЕЧАТЬ / PDF":"PRINT / PDF",
+    "JSON-отчёт скачан":"JSON report downloaded"
+  });
+
   let language = localStorage.getItem(KEY) === "en" ? "en" : "ru";
   const originalText = new WeakMap();
 
