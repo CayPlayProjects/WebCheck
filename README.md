@@ -184,6 +184,7 @@ WebCheck/
 ├── accessibility-audit.js
 ├── link-audit.js
 ├── rate-limit.js
+├── ip-safety.js
 ├── test/
 │   ├── security-audit.test.js
 │   ├── seo-audit.test.js
@@ -326,8 +327,8 @@ WebCheck:
 
 - принимает только `HTTP` и `HTTPS`;
 - запрещает `localhost`;
-- запрещает приватные IPv4 диапазоны;
-- блокирует приватные и link-local IPv6;
+- запрещает приватные, link-local, loopback, documentation и другие специальные IPv4 диапазоны;
+- разрешает для IPv6 только глобальный unicast диапазон и блокирует служебные, documentation, multicast и туннельные диапазоны;
 - проверяет IPv4-mapped IPv6;
 - сначала проверяет DNS;
 - подключается именно к проверенному IP;
