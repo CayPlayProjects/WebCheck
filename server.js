@@ -10,6 +10,7 @@ const {runPerformanceAudit} = require("./performance-audit");
 const {runAccessibilityAudit} = require("./accessibility-audit");
 const {crawlInternalLinks} = require("./link-audit");
 const {createRateLimiter} = require("./rate-limit");
+const {isPrivateIp} = require("./ip-safety");
 
 const PORT = Number(process.env.PORT || 3000);
 const HOST = process.env.HOST || "127.0.0.1";
@@ -45,40 +46,6 @@ function normalizeFamily(family, address){
   if(family === 4 || family === "IPv4") return 4;
   if(family === 6 || family === "IPv6") return 6;
   return net.isIP(address);
-}
-
-function isPrivateIp(address){
-  const family = net.isIP(address);
-  if(!family) return true;
-
-  if(family === 4){
-    const p = address.split(".").map(Number);
-    return (
-      p[0] === 0 ||
-      p[0] === 10 ||
-      p[0] === 127 ||
-      (p[0] === 169 && p[1] === 254) ||
-      (p[0] === 172 && p[1] >= 16 && p[1] <= 31) ||
-      (p[0] === 192 && p[1] === 168) ||
-      (p[0] === 100 && p[1] >= 64 && p[1] <= 127) ||
-      p[0] >= 224
-    );
-  }
-
-  let ip = address.toLowerCase();
-
-  // IPv4-mapped IPv6, e.g. ::ffff:127.0.0.1
-  const mapped = ip.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/);
-  if(mapped) return isPrivateIp(mapped[1]);
-
-  return (
-    ip === "::" ||
-    ip === "::1" ||
-    ip.startsWith("fc") ||
-    ip.startsWith("fd") ||
-    /^fe[89ab]/.test(ip) ||
-    ip.startsWith("2001:db8:")
-  );
 }
 
 async function resolvePublicAddress(hostname){
