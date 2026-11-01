@@ -125,7 +125,7 @@ function renderReport(data){
   `).join("");
 
   const crawlStatusLabels = {
-    root:"ROOT", ok:"OK", broken:"BROKEN", redirect:"REDIRECT",
+    root:"ROOT", ok:"OK", broken:"BROKEN", blocked:"BLOCKED", redirect:"REDIRECT",
     "external-redirect":"EXTERNAL REDIRECT", unverified:"UNVERIFIED",
     "robots-blocked":"ROBOTS BLOCKED"
   };
