@@ -414,7 +414,7 @@ main{
   font-family:monospace;
   font-size:10px;
 }
-.report-actions{display:flex;gap:8px}
+.report-actions{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:8px}
 .report-actions button{
   height:42px;
   padding:0 15px;
