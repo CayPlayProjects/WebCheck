@@ -268,7 +268,7 @@
     "JSON-отчёт скачан":"JSON report downloaded"
   });
 
-  const hasCyrillic = value => /[\\u0400-\\u04FF]/.test(value);
+  const hasCyrillic = value => /[А-Яа-яЁё]/.test(value);
   const russianToEnglish = {};
   const englishToRussian = {};
   for (const [source, destination] of Object.entries(translations)) {
