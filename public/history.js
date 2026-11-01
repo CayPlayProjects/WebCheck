@@ -167,7 +167,7 @@ function compareReports(current,previous){
   }
   for(const [key,item] of previousChecks){
     if(!currentChecks.has(key)){
-      changes.push({key,label:item.label||key,state:"resolved",current:null,previous:item.status});
+      changes.push({key,label:item.label||key,state:"removed",current:null,previous:item.status});
     }
   }
 
