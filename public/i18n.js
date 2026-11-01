@@ -336,6 +336,34 @@
     "pages /":"страниц /"
   });
 
+  Object.assign(translations, {
+    "LOCAL WORKSPACE":"ЛОКАЛЬНОЕ ХРАНИЛИЩЕ",
+    "История проверок":"Scan history",
+    "Последние отчёты хранятся только в этом браузере.":"Recent reports are stored only in this browser.",
+    "CLEAR HISTORY":"ОЧИСТИТЬ ИСТОРИЮ",
+    "Пока нет сохранённых отчётов. Запустите первую проверку сайта.":"No saved reports yet. Run your first website scan.",
+    "OPEN":"ОТКРЫТЬ",
+    "History entry deleted":"Запись истории удалена",
+    "History cleared":"История очищена",
+    "History could not be saved in this browser":"Не удалось сохранить историю в этом браузере",
+    "CHANGE SINCE PREVIOUS SCAN":"ИЗМЕНЕНИЯ С ПРОШЛОЙ ПРОВЕРКИ",
+    "Сравнение с прошлой проверкой":"Compare with previous scan",
+    "OVERALL SCORE":"ОБЩАЯ ОЦЕНКА",
+    "was":"было",
+    "points improved":"баллов улучшения",
+    "points lower":"баллов снижения",
+    "no score change":"без изменений",
+    "BROKEN PAGES":"СТРАНИЦ С ОШИБКАМИ",
+    "change since last scan":"изменение с прошлой проверки",
+    "IMPROVED":"УЛУЧШЕНО",
+    "REGRESSED":"УХУДШИЛОСЬ",
+    "NEW":"НОВОЕ",
+    "REMOVED":"УСТРАНЕНО",
+    "CHANGED":"ИЗМЕНЕНО",
+    "No checklist status changes since the previous saved scan.":"Статусы проверок не изменились с предыдущего отчёта.",
+    "Delete":"Удалить"
+  });
+
   const hasCyrillic = value => /[А-Яа-яЁё]/.test(value);
   const russianToEnglish = {};
   const englishToRussian = {};
