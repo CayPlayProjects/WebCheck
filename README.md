@@ -6,7 +6,7 @@
 
 **Проверка SEO, security, social metadata и технического состояния сайта — в одном понятном отчёте.**
 
-![Version](https://img.shields.io/badge/version-0.4.1-265CFF?style=flat-square)
+![Version](https://img.shields.io/badge/version-0.5.0-265CFF?style=flat-square)
 ![Node](https://img.shields.io/badge/Node.js-18%2B-111318?style=flat-square)
 ![License](https://img.shields.io/badge/license-MIT-FF5B2E?style=flat-square)
 ![Status](https://img.shields.io/badge/status-active-168A58?style=flat-square)
@@ -48,7 +48,7 @@ SOCIAL       82 / 100
 TECHNICAL    95 / 100
 ```
 
-WebCheck не требует базы данных, регистрации пользователей или сложной настройки.
+WebCheck не требует базы данных и регистрации пользователей. Для обычных проверок внешние зависимости не нужны; Lighthouse обращается к Google PageSpeed Insights.
 
 ---
 
@@ -99,6 +99,7 @@ WebCheck не требует базы данных, регистрации по�
 
 Пассивная оценка HTML и первого HTTP-ответа:
 
+
 - размер HTML-документа;
 - время до получения первых HTTP-заголовков (TTFB);
 - число ссылок на изображения, скрипты и стили;
@@ -107,7 +108,13 @@ WebCheck не требует базы данных, регистрации по�
 - указание размеров изображений;
 - наличие политики кэширования.
 
-Это не заменяет браузерные Lighthouse/Core Web Vitals измерения: WebCheck не запускает JavaScript в браузере.
+### Lighthouse
+
+По желанию можно включить отдельный Lighthouse-аудит через Google PageSpeed Insights API. Он возвращает лабораторные категории Performance, Accessibility, Best Practices и SEO, а также доступные метрики и рекомендации. Режим Mobile или Desktop можно выбрать перед запуском.
+
+При включении этой функции целевой URL передаётся Google PageSpeed Insights. Без этой галочки внешний сервис не вызывается. API-ключ необязателен, но для регулярного использования рекомендуется настроить `PAGESPEED_API_KEY`. Подробности: https://developers.google.com/speed/docs/insights/v5/get-started
+
+Lighthouse-результаты — лабораторные измерения, а не реальные показатели посетителей. Для настоящих пользовательских данных нужен отдельный источник полевых метрик.
 
 ## Accessibility
 
@@ -123,9 +130,20 @@ WebCheck не требует базы данных, регистрации по�
 
 Эти сигналы помогают найти частые проблемы, но не являются полноценным WCAG-аудитом и не измеряют цветовой контраст.
 
-## Internal links
+## Website crawler
 
-WebCheck выбирает до 8 уникальных внутренних ссылок с того же origin и проверяет HTTP-статусы методом HEAD. Проверка ограничена по количеству запросов и не следует за внешними редиректами. Ответы 403/405 и сетевые ошибки отмечаются как непроверенные, а не как доказанные неработающие ссылки.
+WebCheck умеет выполнять настраиваемый ограниченный обход публичных HTML-страниц того же origin:
+
+- глубина обхода: от 1 до 3 уровней;
+- лимит: от 5 до 30 страниц, включая стартовую;
+- параллельность: не более 3 запросов;
+- ссылки берутся из HTML и sitemap.xml;
+- учитываются правила Allow / Disallow из robots.txt для User-agent WebCheck и *;
+- внешние ссылки пропускаются;
+- редиректы не проходят автоматически: внешний redirect отмечается отдельно;
+- для каждой страницы фиксируются HTTP status, title и число SEO-сигналов с предупреждениями.
+
+Сканер не использует авторизацию и не отправляет формы. Это выборочный аудит, а не полный обход неограниченного сайта. Максимальные глубина и число страниц жёстко ограничены сервером.
 
 ## Technical
 
@@ -185,6 +203,8 @@ WebCheck/
 ├── link-audit.js
 ├── rate-limit.js
 ├── ip-safety.js
+├── site-crawler.js
+├── lighthouse.js
 ├── test/
 │   ├── security-audit.test.js
 │   ├── seo-audit.test.js
@@ -224,7 +244,7 @@ npm start
 Должно появиться:
 
 ```text
-WebCheck v0.4.1 running on http://localhost:3000
+WebCheck v0.5.0 running on http://localhost:3000
 ```
 
 ### Шаг 4
@@ -671,7 +691,7 @@ POST /api/check
 
 # 12 / Ограничения текущей версии
 
-WebCheck v0.4.0 — это пассивный диагностический инструмент, а не полноценный penetration-testing scanner.
+WebCheck v0.5.0 — это пассивный диагностический инструмент, а не полноценный penetration-testing scanner.
 
 Он пока не выполняет:
 
@@ -695,9 +715,9 @@ Security-результаты строятся по публичному HTML и
 - [x] Bounded same-origin link sampling
 - [x] Basic performance and accessibility checks
 - [x] API rate and concurrency limits
-- [ ] Full configurable website crawler
-- [ ] Broken links scanner
-- [ ] Lighthouse integration
+- [x] Configurable same-origin crawler with robots.txt and sitemap support
+- [x] Broken and redirected page reporting
+- [x] Google PageSpeed Insights / Lighthouse integration
 - [ ] Core Web Vitals
 - [ ] Better HTML parser
 - [x] JSON report export
