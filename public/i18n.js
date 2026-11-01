@@ -108,7 +108,8 @@
       const translated = language === "en" ? (translations[trimmed] || trimmed) : trimmed;
       const leading = source.match(/^\s*/)?.[0] || "";
       const trailing = source.match(/\s*$/)?.[0] || "";
-      node.nodeValue = leading + translated + trailing;
+      const output = leading + translated + trailing;
+      if (node.nodeValue !== output) node.nodeValue = output;
       return;
     }
     if (node.nodeType === Node.ELEMENT_NODE) {
