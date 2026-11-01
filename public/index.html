@@ -62,6 +62,37 @@
             <span>START SCAN</span>
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h13M13 6l6 6-6 6"/></svg>
           </button>
+          <div class="scan-options">
+            <label class="scan-option">
+              <span>CRAWL DEPTH</span>
+              <select id="crawlDepth" name="crawlDepth">
+                <option value="1">1 level</option>
+                <option value="2" selected>2 levels</option>
+                <option value="3">3 levels</option>
+              </select>
+            </label>
+            <label class="scan-option">
+              <span>MAX PAGES</span>
+              <select id="crawlPages" name="crawlPages">
+                <option value="5">5 pages</option>
+                <option value="10" selected>10 pages</option>
+                <option value="20">20 pages</option>
+                <option value="30">30 pages</option>
+              </select>
+            </label>
+            <label class="scan-option scan-option-check">
+              <input id="lighthouseEnabled" type="checkbox">
+              <span>RUN LIGHTHOUSE AUDIT</span>
+            </label>
+            <label class="scan-option" id="lighthouseStrategyWrap" hidden>
+              <span>DEVICE</span>
+              <select id="lighthouseStrategy" name="lighthouseStrategy">
+                <option value="mobile" selected>Mobile</option>
+                <option value="desktop">Desktop</option>
+              </select>
+            </label>
+            <p class="scan-option-note">Crawler checks same-origin pages and respects robots.txt. Lighthouse sends the page URL to Google PageSpeed Insights when enabled.</p>
+          </div>
         </form>
 
         <div class="hero-notes">
@@ -212,15 +243,25 @@
       <div class="report-section">
         <div class="section-title">
           <span>05</span>
-          <div><small>INTERNAL LINK CHECK</small><h3>Внутренние ссылки</h3></div>
+          <div><small>WEBSITE CRAWLER</small><h3>Страницы сайта</h3></div>
           <span class="section-line"></span>
         </div>
+        <div class="crawler-stats" id="crawlerStats"></div>
         <div class="link-audit-list" id="linkAuditGrid"></div>
+      </div>
+
+      <div class="report-section" id="lighthouseSection" hidden>
+        <div class="section-title">
+          <span>06</span>
+          <div><small>GOOGLE PAGESPEED / LIGHTHOUSE</small><h3>Lighthouse report</h3></div>
+          <span class="section-line"></span>
+        </div>
+        <div id="lighthouseContent" class="lighthouse-content"></div>
       </div>
 
       <div class="report-section">
         <div class="section-title">
-          <span>06</span>
+          <span>07</span>
           <div><small>ACTION PLAN</small><h3>Что исправить</h3></div>
           <span class="section-line"></span>
           <b class="recommendation-count" id="recommendationCount">0</b>
@@ -230,7 +271,7 @@
 
       <details class="raw-details">
         <summary>
-          <span>07 / TECHNICAL DATA</span>
+          <span>08 / TECHNICAL DATA</span>
           <strong>Показать детали</strong>
           <b>+</b>
         </summary>
