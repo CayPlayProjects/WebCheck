@@ -268,6 +268,14 @@
     "JSON-отчёт скачан":"JSON report downloaded"
   });
 
+  const hasCyrillic = value => /[\\u0400-\\u04FF]/.test(value);
+  const russianToEnglish = {};
+  const englishToRussian = {};
+  for (const [source, destination] of Object.entries(translations)) {
+    if (hasCyrillic(source) && !hasCyrillic(destination)) russianToEnglish[source] = destination;
+    else if (!hasCyrillic(source) && hasCyrillic(destination)) englishToRussian[source] = destination;
+  }
+
   let language = localStorage.getItem(KEY) === "en" ? "en" : "ru";
   const originalText = new WeakMap();
 
@@ -277,7 +285,7 @@
       const source = originalText.get(node);
       const trimmed = source.trim();
       if (!trimmed) return;
-      const translated = language === "en" ? (translations[trimmed] || trimmed) : trimmed;
+      const translated = language === "en" ? (russianToEnglish[trimmed] || trimmed) : (englishToRussian[trimmed] || trimmed);
       const leading = source.match(/^\s*/)?.[0] || "";
       const trailing = source.match(/\s*$/)?.[0] || "";
       const output = leading + translated + trailing;
