@@ -388,15 +388,34 @@ PRIVATE NETWORK   ✕
 
 ```text
 WebCheck/
-│
 ├── public/
 │   ├── index.html
 │   ├── styles.css
 │   ├── app.js
 │   ├── i18n.js
+│   ├── history.js
 │   └── favicon.svg
-│
+├── test/
+│   ├── security-audit.test.js
+│   ├── seo-audit.test.js
+│   ├── performance-audit.test.js
+│   ├── accessibility-audit.test.js
+│   ├── link-audit.test.js
+│   ├── site-crawler.test.js
+│   ├── lighthouse.test.js
+│   ├── history.test.js
+│   ├── rate-limit.test.js
+│   └── ip-safety.test.js
 ├── server.js
+├── security-audit.js
+├── seo-audit.js
+├── performance-audit.js
+├── accessibility-audit.js
+├── link-audit.js
+├── site-crawler.js
+├── lighthouse.js
+├── rate-limit.js
+├── ip-safety.js
 ├── package.json
 ├── README.md
 ├── LICENSE
@@ -438,7 +457,9 @@ Frontend-логика:
 - `seo-audit.js` — качество метаданных, canonical, robots, JSON-LD и heading hierarchy;
 - `performance-audit.js` — вес HTML, TTFB и статические признаки загрузки;
 - `accessibility-audit.js` — базовые проверки доступности HTML;
-- `link-audit.js` — выборочная проверка внутренних ссылок.
+- `link-audit.js` — выборочная проверка внутренних ссылок;
+- `site-crawler.js` — ограниченный обход страниц с учётом robots.txt и sitemap;
+- `lighthouse.js` — запрос и разбор отчётов Google PageSpeed Insights / Lighthouse.
 
 ### `server.js`
 
@@ -585,7 +606,7 @@ npm run dev
 Проверьте, что терминал всё ещё запущен и в нём есть:
 
 ```text
-WebCheck v0.2.1 running on http://localhost:3000
+WebCheck v0.6.0 running on http://localhost:3000
 ```
 
 Затем откройте именно:
@@ -731,7 +752,7 @@ Security-результаты — сигналы для ручной прове�
 
 ---
 
-3 / Roadmap
+# 13 / Roadmap
 
 - [x] Russian / English interface switch
 - [x] Expanded passive Security Audit
