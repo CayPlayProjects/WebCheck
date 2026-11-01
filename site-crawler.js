@@ -1,6 +1,6 @@
 "use strict";
 
-const {parseAttributes}=require("./seo-audit");
+const {parseAttributes,runSeoAudit}=require("./seo-audit");
 
 function decodeXml(value){
   return String(value||"")
@@ -150,7 +150,7 @@ async function crawlSite({
   const queued=new Set([root.toString()]);
   const pages=[{
     url:root.toString(),depth:0,statusCode:Number(rootPage.statusCode)||0,status:"root",
-    title:pageTitle(rootPage.html),linksFound:0,
+    title:pageTitle(rootPage.html),linksFound:0,seoIssues:0,
     contentType:rootPage.headers&&rootPage.headers["content-type"]||""
   }];
   const queue=[];
@@ -212,9 +212,10 @@ async function crawlSite({
       const childLinks=html&&status==="ok"&&entry.item.depth<depthLimit
         ? extractPageLinks(html,page.finalUrl||entry.item.url,pageLimit*4)
         : [];
+      const seoResult=html ? runSeoAudit({html,finalUrl:page.finalUrl||entry.item.url}) : null;
       pages.push({
         url:entry.item.url,depth:entry.item.depth,statusCode,status,
-        title:pageTitle(html),linksFound:childLinks.length,contentType,redirectTo
+        title:pageTitle(html),linksFound:childLinks.length,seoIssues:seoResult?seoResult.checks.filter(item=>item.status!=="pass").length:0,contentType,redirectTo
       });
       for(const nextUrl of childLinks) addUrl(nextUrl,entry.item.depth+1);
     }
@@ -227,6 +228,7 @@ async function crawlSite({
     broken:scanned.filter(item=>item.status==="broken").length,
     redirects:scanned.filter(item=>item.status==="redirect"||item.status==="external-redirect").length,
     unverified:scanned.filter(item=>item.status==="unverified").length,
+    pagesWithSeoWarnings:scanned.filter(item=>(item.seoIssues||0)>0).length,
     pages
   };
 }
