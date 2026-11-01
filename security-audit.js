@@ -1,5 +1,7 @@
 "use strict";
 
+const {parseAttributes}=require("./seo-audit");
+
 function check(key, label, description, status, value, weight=3){
   return {category:"security", key, label, description, status, value, weight};
 }
@@ -9,7 +11,6 @@ function runSecurityAudit({html="", headers={}, protocol="https:"}={}){
   const csp = String(headers["content-security-policy"] || "");
   const cookies = headers["set-cookie"] || [];
   const cookieLines = Array.isArray(cookies) ? cookies : [cookies];
-  const lowerHtml = source.toLowerCase();
   const secure = protocol === "https:";
   const checks = [];
   const recommendations = [];
@@ -128,8 +129,9 @@ function runSecurityAudit({html="", headers={}, protocol="https:"}={}){
   add(Boolean(serverHeader || poweredBy),"Reduce unnecessary technology disclosure",
     "Review Server and X-Powered-By response headers and avoid exposing detailed version information.");
 
-  const blankTargetAnchors=[...source.matchAll(/<a\\b[^>]*>/gi)].filter(match=>{
-    const attrs=require("./seo-audit").parseAttributes(match[0]);
+  const anchorTags=source.match(/<a(?:\\s|>)[^>]*>/gi)||[];
+  const blankTargetAnchors=anchorTags.filter(tag=>{
+    const attrs=parseAttributes(tag);
     if(String(attrs.target||"").toLowerCase()!=="_blank") return false;
     const rel=String(attrs.rel||"").toLowerCase().split(/\\s+/);
     return !rel.includes("noopener");
