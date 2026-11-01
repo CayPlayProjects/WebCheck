@@ -41,7 +41,7 @@ function renderHistoryList(){
   list.innerHTML=entries.map(entry=>{
     const report=entry.report;
     const date=new Date(report.checkedAt||entry.savedAt);
-    const dateText=Number.isNaN(date.getTime())?entry.savedAt:date.toLocaleString();
+    const dateText=Number.isNaN(date.getTime())?entry.savedAt:date.toLocaleString(document.documentElement.lang==="en"?"en-US":"ru-RU");
     return `
       <article class="history-row">
         <div class="history-host">
