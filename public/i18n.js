@@ -359,6 +359,7 @@
     "REGRESSED":"УХУДШИЛОСЬ",
     "NEW":"НОВОЕ",
     "REMOVED":"УСТРАНЕНО",
+    "REMOVED FROM REPORT":"УДАЛЕНО ИЗ ОТЧЁТА",
     "CHANGED":"ИЗМЕНЕНО",
     "No checklist status changes since the previous saved scan.":"Статусы проверок не изменились с предыдущего отчёта.",
     "Delete":"Удалить"
