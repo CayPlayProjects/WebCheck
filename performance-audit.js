@@ -59,12 +59,6 @@ function runPerformanceAudit({html="",htmlBytes=0,responseTimeMs=0,headers={}}={
   add(!hasCachePolicy,"Review cache policy",
     "No Cache-Control or Expires header was observed on the main HTML response. Configure caching according to whether the page is static or personalized.");
 
-  const encoding=String(headers["content-encoding"]||"identity");
-  addCheck("contentEncoding","Response content encoding","Compression can reduce transfer size for text-based responses.",
-    /^(br|gzip|deflate)$/i.test(encoding)?"pass":"warn",encoding,2);
-  add(!/^(br|gzip|deflate)$/i.test(encoding),"Enable text response compression",
-    "The response did not advertise gzip, deflate or Brotli encoding. Consider enabling compression at the web server or CDN.");
-
   return {checks,recommendations,metrics:{resourceCount,images:images.length,scripts:scripts.length,stylesheets:stylesheets.length,blockingScripts:blockingScripts.length,lazyImages}};
 }
 
