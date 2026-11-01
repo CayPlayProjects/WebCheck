@@ -24,7 +24,11 @@ jobs:
         run: npm test
       - name: Create standalone project archive
         if: matrix.node-version == '22.x'
-        run: zip -qr WebCheck-0.4.0.zip . -x ".git/*" "node_modules/*" "WebCheck-0.4.0.zip"
+        run: |
+          mkdir -p /tmp/webcheck-package
+          cp -R public test .github /tmp/webcheck-package/
+          cp server.js security-audit.js seo-audit.js performance-audit.js accessibility-audit.js link-audit.js package.json README.md LICENSE .gitignore /tmp/webcheck-package/
+          (cd /tmp/webcheck-package && zip -qr "$GITHUB_WORKSPACE/WebCheck-0.4.0.zip" .)
       - name: Upload standalone project
         if: matrix.node-version == '22.x'
         uses: actions/upload-artifact@v4
