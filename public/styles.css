@@ -899,7 +899,7 @@ main{
 .comparison-change.improved>span,.comparison-category small.improved{color:var(--green)}
 .comparison-change.worsened>span,.comparison-category small.worsened{color:var(--red)}
 .comparison-change.new>span{color:var(--blue)}
-.comparison-change.resolved>span{color:var(--green)}
+.comparison-change.removed>span{color:var(--muted)}
 .comparison-change.changed>span{color:var(--yellow)}
 .comparison-empty{grid-column:1/-1;margin:0;padding:18px;color:var(--muted);font-size:10px;background:var(--white)}
 @media(max-width:950px){
