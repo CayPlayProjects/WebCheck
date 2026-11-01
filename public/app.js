@@ -242,6 +242,33 @@ $("#repeatCheckButton").addEventListener("click", () => {
   if(lastReport) runCheck(lastReport.requestedUrl);
 });
 
+$("#downloadJsonButton").addEventListener("click", () => {
+  if(!lastReport) return;
+  const blob = new Blob([JSON.stringify(lastReport, null, 2)], {type:"application/json"});
+  const objectUrl = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  const safeHost = String(lastReport.host || "website").replace(/[^a-z0-9.-]/gi, "-");
+  link.href = objectUrl;
+  link.download = "webcheck-" + safeHost + "-" + new Date().toISOString().slice(0,10) + ".json";
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(objectUrl);
+  showToast("JSON report downloaded");
+});
+
+$("#printReportButton").addEventListener("click", () => {
+  if(!lastReport) return;
+  const details = $(".raw-details");
+  if(details) details.open = true;
+  window.print();
+});
+
+window.addEventListener("afterprint", () => {
+  const details = $(".raw-details");
+  if(details) details.open = false;
+});
+
 $("#copyReportButton").addEventListener("click", async () => {
   if(!lastReport) return;
 
