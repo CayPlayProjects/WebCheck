@@ -110,6 +110,17 @@ function renderReport(data){
     </article>
   `).join("");
 
+  const linkResults = data.linkAudit?.results || [];
+  $("#linkAuditGrid").innerHTML = linkResults.length
+    ? linkResults.map(item => `
+      <article class="link-audit-row ${escapeHtml(item.status)}">
+        <span class="link-audit-status">${escapeHtml(item.status.toUpperCase())}</span>
+        <a href="${escapeHtml(item.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(item.url)}</a>
+        <span class="link-audit-code">${item.statusCode || "—"} ${escapeHtml(item.statusText || "")}</span>
+      </article>
+    `).join("")
+    : '<p class="link-audit-empty">No crawlable same-origin links were found in the sample.</p>';
+
   $("#recommendationCount").textContent = data.recommendations.length;
   $("#recommendations").innerHTML = data.recommendations.length
     ? data.recommendations.map((rec, index) => `
@@ -140,6 +151,13 @@ function renderReport(data){
     ["Canonical", data.meta.canonical || "—"],
     ["Language", data.meta.lang || "—"],
     ["H1 count", String(data.meta.h1Count ?? 0)],
+    ["Title length", String(data.meta.title || "").length + " characters"],
+    ["Robots directive", data.meta.robots || "—"],
+    ["Canonical", data.meta.canonical || "—"],
+    ["TLS protocol", data.headers.tls?.protocol || "—"],
+    ["TLS certificate expiry", data.headers.tls?.validTo || "—"],
+    ["Internal links checked", String(data.linkAudit?.checked ?? 0)],
+    ["Broken internal links", String(data.linkAudit?.broken ?? 0)],
     ["Content-Type", data.headers.contentType || "—"],
     ["Server", data.headers.server || "Not disclosed"],
     ["Cache-Control", data.headers.cacheControl || "—"]
@@ -230,13 +248,13 @@ $("#copyReportButton").addEventListener("click", async () => {
   const report = [
     `WEB/CHECK — ${lastReport.host}`,
     `Score: ${lastReport.score}/100`,
-    `SEO: ${lastReport.categoryScores.seo}/100`,
-    `Security: ${lastReport.categoryScores.security}/100`,
-    `Social: ${lastReport.categoryScores.social}/100`,
-    `Technical: ${lastReport.categoryScores.technical}/100`,
+    ...Object.entries(lastReport.categoryScores || {}).map(([name, value]) => name.toUpperCase() + ": " + value + "/100"),
     `URL: ${lastReport.finalUrl}`,
     "",
-    ...lastReport.checks.map(c => `${humanStatus(c.status)} | ${c.label}: ${c.value ?? "—"}`),
+    ...lastReport.checks.map(c => `${humanStatus(c.status)} | ${c.category.toUpperCase()} | ${c.label}: ${c.value ?? "—"}`),
+    "",
+    "Internal links:",
+    ...(lastReport.linkAudit?.results || []).map(link => link.status.toUpperCase() + " | " + link.statusCode + " | " + link.url),
     "",
     "Recommendations:",
     ...(lastReport.recommendations.length
