@@ -129,11 +129,11 @@ function runSecurityAudit({html="", headers={}, protocol="https:"}={}){
   add(Boolean(serverHeader || poweredBy),"Reduce unnecessary technology disclosure",
     "Review Server and X-Powered-By response headers and avoid exposing detailed version information.");
 
-  const anchorTags=source.match(/<a(?:\\s|>)[^>]*>/gi)||[];
+  const anchorTags=source.match(/<a[ >][^>]*>/gi)||[];
   const blankTargetAnchors=anchorTags.filter(tag=>{
     const attrs=parseAttributes(tag);
     if(String(attrs.target||"").toLowerCase()!=="_blank") return false;
-    const rel=String(attrs.rel||"").toLowerCase().split(/\\s+/);
+    const rel=String(attrs.rel||"").toLowerCase().split(" ");
     return !rel.includes("noopener");
   }).length;
   checks.push(check("externalLinkRel","New-window link isolation",
