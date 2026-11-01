@@ -35,7 +35,7 @@ function runAccessibilityAudit({html=""}={}){
   const unlabeled=controls.filter(item=>{
     const id=item.attrs.id;
     const explicitlyLinked=id&&explicitLabelIds.has(id);
-    const wrapped=wrappedLabels.some(label=>new RegExp("<"+item.tag+"\\\\b","i").test(label));
+    const wrapped=wrappedLabels.some(label=>new RegExp("<"+item.tag+"(?:\\\\s|>)","i").test(label));
     return !explicitlyLinked&&!wrapped&&!item.attrs["aria-label"]&&!item.attrs["aria-labelledby"];
   }).length;
   addCheck("formLabels","Form control labels","Inputs, selects and textareas need programmatic labels or accessible names.",
