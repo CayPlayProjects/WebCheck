@@ -8,7 +8,8 @@ const {runSecurityAudit} = require("./security-audit");
 const {runSeoAudit} = require("./seo-audit");
 const {runPerformanceAudit} = require("./performance-audit");
 const {runAccessibilityAudit} = require("./accessibility-audit");
-const {crawlInternalLinks} = require("./link-audit");
+const {crawlSite} = require("./site-crawler");
+const {requestPageSpeed} = require("./lighthouse");
 const {createRateLimiter} = require("./rate-limit");
 const {isPrivateIp} = require("./ip-safety");
 
@@ -396,7 +397,7 @@ function calculateCategoryScore(checks, category){
   return Math.round((earned / total) * 100);
 }
 
-async function analyze(rawUrl){
+async function analyze(rawUrl, options={}){
   const requested = normalizeUrl(rawUrl);
   const page = await requestUrl(requested.toString());
 
@@ -431,20 +432,43 @@ async function analyze(rawUrl){
 
   const origin = `${final.protocol}//${final.host}`;
 
-  const [robots, sitemap, favicon, internalLinkAudit] = await Promise.all([
-    quickExists(new URL("/robots.txt", origin).toString()),
-    quickExists(new URL("/sitemap.xml", origin).toString()),
-    quickExists(faviconUrl),
-    crawlInternalLinks(html, page.finalUrl, async targetUrl => {
-      const result = await requestUrl(targetUrl, {method:"HEAD", followRedirects:false});
-      return {
-        statusCode:result.statusCode,
-        statusText:result.statusText,
-        redirectTo:result.redirectTo,
-        status:result.statusCode===403 || result.statusCode===405 ? "blocked" : ""
-      };
-    }, {limit:8, concurrency:3})
+  const [robotsResult,sitemapResult,favicon] = await Promise.all([
+    requestUrl(new URL("/robots.txt",origin).toString(),{method:"GET",followRedirects:false}).catch(()=>null),
+    requestUrl(new URL("/sitemap.xml",origin).toString(),{method:"GET",followRedirects:false}).catch(()=>null),
+    quickExists(faviconUrl)
   ]);
+  const robots=Boolean(robotsResult&&robotsResult.statusCode>=200&&robotsResult.statusCode<300);
+  const sitemap=Boolean(sitemapResult&&sitemapResult.statusCode>=200&&sitemapResult.statusCode<300);
+  const crawlOptions=options.crawl||{};
+  const siteCrawl=await crawlSite({
+    startUrl:page.finalUrl,
+    rootPage:page,
+    robotsTxt:robots?robotsResult.body:"",
+    sitemapXml:sitemap?sitemapResult.body:"",
+    maxDepth:crawlOptions.depth,
+    maxPages:crawlOptions.maxPages,
+    concurrency:3,
+    fetchPage:async targetUrl=>{
+      const result=await requestUrl(targetUrl,{method:"GET",followRedirects:false});
+      return result;
+    }
+  });
+
+  let lighthouse=null;
+  if(options.lighthouse&&options.lighthouse.enabled===true){
+    try{
+      lighthouse={
+        status:"completed",
+        ...(await requestPageSpeed(page.finalUrl,{
+          strategy:options.lighthouse.strategy==="desktop"?"desktop":"mobile",
+          locale:options.locale==="en"?"en":"ru",
+          apiKey:process.env.PAGESPEED_API_KEY||""
+        }))
+      };
+    }catch(error){
+      lighthouse={status:"error",error:error&&error.message?error.message:"Lighthouse analysis failed"};
+    }
+  }
 
   const csp = Boolean(headers["content-security-policy"]);
   const hsts = Boolean(headers["strict-transport-security"]);
@@ -488,12 +512,11 @@ async function analyze(rawUrl){
     ...performanceAudit.checks,
     ...accessibilityAudit.checks,
     makeCheck(
-      "technical","internalLinks","Internal link audit",
-      "A small sample of same-origin links is checked with HEAD requests.",
-      internalLinkAudit.broken>0 ? "fail" : internalLinkAudit.unverified>0 || internalLinkAudit.redirects>0 ? "warn" : "pass",
-      internalLinkAudit.checked===0 ? "No crawlable internal links found" :
-        internalLinkAudit.broken+" broken / "+internalLinkAudit.checked+" checked",
-      5
+      "technical","siteCrawler","Website crawler",
+      "A bounded same-origin crawl checks public HTML pages and their HTTP status.",
+      siteCrawl.broken>0 ? "fail" : siteCrawl.unverified>0 || siteCrawl.redirects>0 ? "warn" : "pass",
+      siteCrawl.visited+" pages / "+siteCrawl.broken+" broken",
+      7
     )
   ];
 
@@ -542,7 +565,9 @@ async function analyze(rawUrl){
   add(final.protocol === "https:" && !hsts,"Включите HSTS","После стабильной настройки HTTPS добавьте Strict-Transport-Security.","medium");
   add(!nosniff,"Добавьте X-Content-Type-Options","Значение nosniff — простая полезная защита от MIME-sniffing.","medium");
   add(page.responseTimeMs > 2500,"Ускорьте серверный ответ","Первый ответ занимает больше 2.5 секунд. Проверьте backend, хостинг и кэширование.","high");
-  add(internalLinkAudit.broken > 0,"Исправьте неработающие внутренние ссылки",`В проверенной выборке найдено ${internalLinkAudit.broken} ссылок с HTTP-ошибками.`,"high");
+  add(siteCrawl.broken > 0,"Fix broken internal pages",siteCrawl.broken+" same-origin page(s) returned HTTP errors.","high");
+  add(siteCrawl.redirects > 0,"Review internal redirects",siteCrawl.redirects+" internal URL(s) redirected. Update old links where appropriate.");
+  add(siteCrawl.pagesWithSeoWarnings > 0,"Review SEO on crawled pages",siteCrawl.pagesWithSeoWarnings+" crawled page(s) contain SEO warnings.");
 
   return {
     requestedUrl:requested.toString(),
@@ -558,7 +583,17 @@ async function analyze(rawUrl){
     checkedAt:new Date().toISOString(),
     checks,
     recommendations:recommendations.sort((a,b) => (a.priority==="high"?0:1)-(b.priority==="high"?0:1)).slice(0,15),
-    linkAudit:internalLinkAudit,
+    siteCrawl,
+    linkAudit:{
+      checked:Math.max(0,siteCrawl.visited-1),
+      broken:siteCrawl.broken,
+      redirects:siteCrawl.redirects,
+      unverified:siteCrawl.unverified,
+      results:siteCrawl.pages.filter(item=>item.depth>0).map(item=>({
+        url:item.url,statusCode:item.statusCode,statusText:item.error||"",status:item.status,redirectTo:item.redirectTo||""
+      }))
+    },
+    lighthouse,
     auditMetrics:{performance:performanceAudit.metrics,accessibility:accessibilityAudit.metrics},
     meta:{
       title,
@@ -690,7 +725,11 @@ const server = http.createServer((req, res) => {
 
       activeScans++;
       try{
-        const result = await analyze(payload.url);
+        const result = await analyze(payload.url,{
+          crawl:payload.crawl,
+          lighthouse:payload.lighthouse,
+          locale:payload.locale
+        });
         sendJson(res, 200, result);
       }catch(error){
         sendJson(res, 400, {
